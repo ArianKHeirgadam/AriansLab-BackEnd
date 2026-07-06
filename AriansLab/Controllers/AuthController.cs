@@ -3,6 +3,7 @@ using Application.DTOs.Auth;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace AriansLab.Api.Controllers;
 
@@ -48,5 +49,21 @@ public class AuthController : ControllerBase
         var result = await _authService.RefreshTokenAsync(request, cancellationToken);
 
         return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Token refreshed successfully."));
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public ActionResult<ApiResponse<object>> Me()
+    {
+        var user = new
+        {
+            Id = User.FindFirstValue(ClaimTypes.NameIdentifier),
+            Email = User.FindFirstValue(ClaimTypes.Email),
+            UserName = User.FindFirstValue(ClaimTypes.Name),
+            Role = User.FindFirstValue(ClaimTypes.Role),
+            IsAuthenticated = User.Identity?.IsAuthenticated ?? false
+        };
+
+        return Ok(ApiResponse<object>.Ok(user, "Authenticated user retrieved successfully."));
     }
 }
