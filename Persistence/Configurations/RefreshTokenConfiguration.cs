@@ -1,0 +1,24 @@
+﻿using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+namespace Persistence.Configurations
+{
+    public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
+    {
+
+        public void Configure(EntityTypeBuilder<RefreshToken> builder)
+        {
+            builder.ToTable("RefreshTokens");
+
+            builder.Property(x => x.Token)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            builder.Property(x => x.ExpireDate)
+                .IsRequired();
+
+            builder.Property(x => x.IsRevoked)
+                .HasDefaultValue(false);
+        }
+    }
+}

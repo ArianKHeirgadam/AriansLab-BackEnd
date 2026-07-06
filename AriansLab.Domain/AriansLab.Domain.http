@@ -1,0 +1,6 @@
+@AriansLab.Domain_HostAddress = http://localhost:5092
+
+GET {{AriansLab.Domain_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
