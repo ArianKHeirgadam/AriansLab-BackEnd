@@ -9,11 +9,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Folder Include="DTOs\" />
-		<Folder Include="Interfaces\" />
-		<Folder Include="Services\" />
 		<Folder Include="Features\" />
-		<Folder Include="Validators\" />
 		<Folder Include="Mappings\" />
 	</ItemGroup>
 

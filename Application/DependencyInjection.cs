@@ -1,18 +1,22 @@
-﻿using FluentValidation;
+﻿using Application.Interfaces;
+using Application.Services;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
-namespace Application
+
+namespace Application;
+
+public static class DependencyInjection
 {
-    public static class DependencyInjection
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        public static IServiceCollection AddApplicationServices(this IServiceCollection services)
-        {
-            var assembly = Assembly.GetExecutingAssembly();
+        var assembly = Assembly.GetExecutingAssembly();
 
-            services.AddAutoMapper(assembly);
-            services.AddValidatorsFromAssembly(assembly);
+        services.AddAutoMapper(assembly);
+        services.AddValidatorsFromAssembly(assembly);
 
-            return services;
-        }
+        services.AddScoped<IAuthService, AuthService>();
+
+        return services;
     }
 }

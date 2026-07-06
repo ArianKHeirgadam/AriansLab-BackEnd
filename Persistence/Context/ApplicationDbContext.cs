@@ -81,6 +81,8 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
+        ConfigureDecimalProperties(modelBuilder);
+
         modelBuilder.ApplyAuditableEntityConfiguration();
 
         modelBuilder.ApplySoftDeleteQueryFilters();
@@ -98,6 +100,25 @@ public class ApplicationDbContext : DbContext
         ApplyAuditing();
 
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void ConfigureDecimalProperties(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Invoice>()
+            .Property(x => x.DiscountAmount)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<Invoice>()
+            .Property(x => x.FinalAmount)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<Invoice>()
+            .Property(x => x.TaxAmount)
+            .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<PricingPlan>()
+            .Property(x => x.Price)
+            .HasColumnType("decimal(18,2)");
     }
 
     private void ApplyAuditing()
