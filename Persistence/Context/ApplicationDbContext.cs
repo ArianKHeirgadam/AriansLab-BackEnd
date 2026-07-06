@@ -1,43 +1,21 @@
 ﻿using Domain.Common;
 using Domain.Entities;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
+
 
 namespace Persistence.Context
 {
-    public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
+    public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-        : base(options)
+         : base(options)
         {
         }
 
-        #region Authentication
+        public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
-        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
-        #endregion
-
-        #region Website
-
-        public DbSet<Service> Services => Set<Service>();
-
-        public DbSet<ServiceFeature> ServiceFeatures => Set<ServiceFeature>();
-
-        public DbSet<PricingPlan> PricingPlans => Set<PricingPlan>();
-
-        public DbSet<PlanFeature> PlanFeatures => Set<PlanFeature>();
-
-        public DbSet<Portfolio> Portfolios => Set<Portfolio>();
-
-        public DbSet<PortfolioCategory> PortfolioCategories => Set<PortfolioCategory>();
-
-        public DbSet<PortfolioImage> PortfolioImages => Set<PortfolioImage>();
-
-        public DbSet<Technology> Technologies => Set<Technology>();
-
-        public DbSet<PortfolioTechnology> PortfolioTechnologies => Set<PortfolioTechnology>();
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
         public DbSet<BlogCategory> BlogCategories => Set<BlogCategory>();
 
@@ -47,78 +25,105 @@ namespace Persistence.Context
 
         public DbSet<ContactMessage> ContactMessages => Set<ContactMessage>();
 
+        public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+
         public DbSet<FAQ> FAQs => Set<FAQ>();
+
+        public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
 
         public DbSet<HeroSection> HeroSections => Set<HeroSection>();
 
-        //slider
+        public DbSet<Invoice> Invoices => Set<Invoice>();
 
-        public DbSet<SocialMedia> SocialMedias => Set<SocialMedia>();
+        public DbSet<Notification> Notifications => Set<Notification>();
 
-        public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
+        public DbSet<Payment> Payments => Set<Payment>();
 
-        #endregion
+        public DbSet<PlanFeature> PlanFeatures => Set<PlanFeature>();
 
-        #region Customer
+        public DbSet<Portfolio> Portfolios => Set<Portfolio>();
+
+        public DbSet<PortfolioCategory> PortfolioCategories => Set<PortfolioCategory>();
+
+        public DbSet<PortfolioImage> PortfolioImages => Set<PortfolioImage>();
+
+        public DbSet<PortfolioTechnology> PortfolioTechnologies => Set<PortfolioTechnology>();
+
+        public DbSet<PricingPlan> PricingPlans => Set<PricingPlan>();
 
         public DbSet<Project> Projects => Set<Project>();
 
         public DbSet<ProjectFile> ProjectFiles => Set<ProjectFile>();
 
-        public DbSet<Invoice> Invoices => Set<Invoice>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-        public DbSet<Payment> Payments => Set<Payment>();
+        public DbSet<Service> Services => Set<Service>();
+
+        public DbSet<ServiceFeature> ServiceFeatures => Set<ServiceFeature>();
+
+        public DbSet<Setting> Settings => Set<Setting>();
+
+        public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
+
+        public DbSet<SocialMedia> SocialMedias => Set<SocialMedia>();
 
         public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
 
+        public DbSet<Technology> Technologies => Set<Technology>();
+
         public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
 
-        public DbSet<Notification> Notifications => Set<Notification>();
-
-        #endregion
-
-        #region System
-
-        public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
-
-        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-
-        public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
-
-        public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
-
-        #endregion
+        public DbSet<User> Users => Set<User>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+            modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
         }
 
-        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override int SaveChanges()
         {
-            var entries = ChangeTracker.Entries<AuditableEntity>();
+            ApplyAuditing();
 
-            foreach (var entry in entries)
+            return base.SaveChanges();
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyAuditing();
+
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplyAuditing()
+        {
+            var now = DateTime.UtcNow;
+
+            foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
             {
-                switch (entry.State)
+                if (entry.State == EntityState.Added)
                 {
-                    case EntityState.Added:
+                    entry.Entity.CreatedAt = now;
+                    entry.Entity.UpdatedAt = null;
+                    entry.Entity.IsDeleted = false;
+                }
 
-                        entry.Entity.CreatedAt = DateTime.UtcNow;
-
-                        break;
-
-                    case EntityState.Modified:
-
-                        entry.Entity.UpdatedAt = DateTime.UtcNow;
-
-                        break;
+                if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.UpdatedAt = now;
                 }
             }
 
-            return await base.SaveChangesAsync(cancellationToken);
+            foreach (var entry in ChangeTracker.Entries<SoftDeleteEntity>())
+            {
+                if (entry.State == EntityState.Deleted)
+                {
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                    entry.Entity.DeletedAt = now;
+                }
+            }
         }
 
     }

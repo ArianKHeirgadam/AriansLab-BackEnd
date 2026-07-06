@@ -1,32 +1,43 @@
-﻿using Domain.Enums;
-using Microsoft.AspNetCore.Identity;
-namespace Domain.Entities
+﻿using Domain.Common;
+using Domain.Enums;
+
+namespace Domain.Entities;
+
+public class User : AuditableEntity
 {
-    public class User: IdentityUser<Guid>
-    {
-        public string FullName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
 
-        public UserRole Role { get; set; }
+    public string Email { get; set; } = string.Empty;
 
-        public bool IsActive { get; set; } = true;
-        public string? Avatar { get; set; }
+    public string NormalizedEmail { get; set; } = string.Empty;
 
-        public DateTime? LastLoginAt { get; set; }
+    public string UserName { get; set; } = string.Empty;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string NormalizedUserName { get; set; } = string.Empty;
 
-        public DateTime? UpdatedAt { get; set; }
+    public string PasswordHash { get; set; } = string.Empty;
 
-        public ICollection<Project> Projects { get; set; } = new List<Project>();
+    public string? PhoneNumber { get; set; }
 
-        public ICollection<SupportTicket> SupportTickets { get; set; } = new List<SupportTicket>();
+    public UserRole Role { get; set; } = UserRole.Customer;
 
-        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+    public bool IsActive { get; set; } = true;
 
-        public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public bool EmailConfirmed { get; set; }
 
-        public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public string? Avatar { get; set; }
 
-        public ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
-    }
+    public DateTime? LastLoginAt { get; set; }
+
+    public ICollection<Project> Projects { get; set; } = new List<Project>();
+
+    public ICollection<SupportTicket> SupportTickets { get; set; } = new List<SupportTicket>();
+
+    public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
+    public ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
 }

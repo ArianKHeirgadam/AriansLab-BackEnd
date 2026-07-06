@@ -4,26 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Infrastructure</RootNamespace>
+    <AssemblyName>Infrastructure</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="Identity\" />
+    <Folder Include="Services\" />
     <Folder Include="Email\" />
     <Folder Include="Jwt\" />
     <Folder Include="FileStorage\" />
     <Folder Include="Payment\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
-    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
-    <PackageReference Include="MailKit" Version="4.17.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.28" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.28" />
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.19.1" />
-    <PackageReference Include="MimeKit" Version="4.17.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
   </ItemGroup>
 
   <ItemGroup>
