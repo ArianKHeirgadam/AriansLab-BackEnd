@@ -9,7 +9,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
     public ApplicationDbContext CreateDbContext(string[] args)
     {
         const string connectionString =
-            "Server=localhost;Database=AriansLabDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+     "Server=ARIANSLAPTOP;Database=AriansLabDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
 

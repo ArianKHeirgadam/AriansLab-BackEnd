@@ -2,7 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-    public class UserConfiguration : IEntityTypeConfiguration<User>
+namespace Persistence.Configurations;
+
+public class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
@@ -50,12 +52,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
         builder.Property(x => x.EmailConfirmed)
             .HasDefaultValue(false);
 
-        builder.Property(x => x.CreatedAt)
-            .IsRequired();
-
-        builder.Property(x => x.IsDeleted)
-            .HasDefaultValue(false);
-
         builder.HasIndex(x => x.Email)
             .IsUnique();
 
@@ -91,12 +87,11 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
         builder.HasMany(x => x.Notifications)
             .WithOne(x => x.User)
             .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(x => x.ActivityLogs)
             .WithOne(x => x.User)
             .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
-
