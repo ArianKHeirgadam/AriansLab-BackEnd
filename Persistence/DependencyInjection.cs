@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddScoped<IBlogReadService, BlogReadService>();
+        services.AddScoped<IBlogAdminCategoryService, BlogAdminCategoryService>();
 
         return services;
     }
