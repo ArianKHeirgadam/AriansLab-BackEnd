@@ -12,7 +12,6 @@ public static class DependencyInjection
     {
         var assembly = Assembly.GetExecutingAssembly();
 
-        services.AddAutoMapper(assembly);
         services.AddValidatorsFromAssembly(assembly);
 
         services.AddScoped<IAuthService, AuthService>();
