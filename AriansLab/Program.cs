@@ -157,6 +157,7 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 await AdminSeeder.SeedAsync(app.Services);
+await BlogSeeder.SeedAsync(app.Services);
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
