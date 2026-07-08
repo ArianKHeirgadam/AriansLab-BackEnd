@@ -47,6 +47,8 @@ public static class DependencyInjection
         services.AddScoped<IServiceReadService, ServiceReadService>();
         services.AddScoped<IServiceAdminService, ServiceAdminService>();
         services.AddScoped<IPricingAdminService, PricingAdminService>();
+        services.AddScoped<IFaqReadService, FaqReadService>();
+        services.AddScoped<IFaqAdminService, FaqAdminService>();
         return services;
     }
 }
