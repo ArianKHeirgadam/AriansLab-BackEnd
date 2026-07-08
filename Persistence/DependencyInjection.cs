@@ -85,6 +85,8 @@ public static class DependencyInjection
         services.AddScoped<ICommentAdminService, CommentAdminService>();
         services.AddScoped<IBlogCategoryReadService, BlogCategoryReadService>();
         services.AddScoped<IBlogCategoryAdminService, BlogCategoryAdminService>();
+        services.AddScoped<ITechnologyReadService, TechnologyReadService>();
+        services.AddScoped<ITechnologyAdminService, TechnologyAdminService>();
         return services;
     }
 }
