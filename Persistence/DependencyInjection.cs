@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IPortfolioReadService, PortfolioReadService>();
         services.AddScoped<IPricingReadService, PricingReadService>();
         services.AddScoped<IServiceReadService, ServiceReadService>();
+        services.AddScoped<IServiceAdminService, ServiceAdminService>();
 
         return services;
     }
