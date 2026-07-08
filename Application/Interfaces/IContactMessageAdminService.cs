@@ -18,8 +18,9 @@ public interface IContactMessageAdminService
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<AdminContactMessageDto?> MarkAsRepliedAsync(
+    Task<AdminContactMessageDto?> ReplyAsync(
         Guid id,
+        ReplyContactMessageRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(

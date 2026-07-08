@@ -121,33 +121,43 @@ public class AdminContactMessagesController : ControllerBase
     }
 
     /// <summary>
-    /// Marks a contact message as replied.
+    /// Saves an admin reply for a contact message.
     /// </summary>
-    [HttpPatch("{id:guid}/replied")]
+    [HttpPost("{id:guid}/reply")]
     [ProducesResponseType(typeof(ApiResponse<AdminContactMessageDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<AdminContactMessageDto>>> MarkAsReplied(
+    public async Task<ActionResult<ApiResponse<AdminContactMessageDto>>> Reply(
         [FromRoute] Guid id,
+        [FromBody] ReplyContactMessageRequestDto request,
         CancellationToken cancellationToken)
     {
-        var message = await _contactMessageAdminService.MarkAsRepliedAsync(
-            id,
-            cancellationToken
-        );
-
-        if (message is null)
+        try
         {
-            return NotFound(ApiResponse.Fail(
-                "Contact message was not found."
+            var message = await _contactMessageAdminService.ReplyAsync(
+                id,
+                request,
+                cancellationToken
+            );
+
+            if (message is null)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Contact message was not found."
+                ));
+            }
+
+            return Ok(ApiResponse<AdminContactMessageDto>.Ok(
+                message,
+                "Reply saved successfully."
             ));
         }
-
-        return Ok(ApiResponse<AdminContactMessageDto>.Ok(
-            message,
-            "Contact message marked as replied successfully."
-        ));
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message));
+        }
     }
 
     /// <summary>

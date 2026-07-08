@@ -30,6 +30,7 @@ public class ContactMessageAdminService : IContactMessageAdminService
                 Message = x.Message,
                 Company = x.Company,
                 IsRead = x.IsRead,
+                AdminReply = x.AdminReply,
                 RepliedAt = x.RepliedAt,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
@@ -54,6 +55,7 @@ public class ContactMessageAdminService : IContactMessageAdminService
                 Message = x.Message,
                 Company = x.Company,
                 IsRead = x.IsRead,
+                AdminReply = x.AdminReply,
                 RepliedAt = x.RepliedAt,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
@@ -78,6 +80,7 @@ public class ContactMessageAdminService : IContactMessageAdminService
                 Message = x.Message,
                 Company = x.Company,
                 IsRead = x.IsRead,
+                AdminReply = x.AdminReply,
                 RepliedAt = x.RepliedAt,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
@@ -104,10 +107,16 @@ public class ContactMessageAdminService : IContactMessageAdminService
         return await GetByIdAsync(contactMessage.Id, cancellationToken);
     }
 
-    public async Task<AdminContactMessageDto?> MarkAsRepliedAsync(
+    public async Task<AdminContactMessageDto?> ReplyAsync(
         Guid id,
+        ReplyContactMessageRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.ReplyMessage))
+        {
+            throw new InvalidOperationException("Reply message is required.");
+        }
+
         var contactMessage = await _dbContext.ContactMessages
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -117,6 +126,7 @@ public class ContactMessageAdminService : IContactMessageAdminService
         }
 
         contactMessage.IsRead = true;
+        contactMessage.AdminReply = request.ReplyMessage.Trim();
         contactMessage.RepliedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);

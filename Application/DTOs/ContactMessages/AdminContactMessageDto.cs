@@ -18,6 +18,8 @@ public class AdminContactMessageDto
 
     public bool IsRead { get; set; }
 
+    public string? AdminReply { get; set; }
+
     public DateTime? RepliedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
