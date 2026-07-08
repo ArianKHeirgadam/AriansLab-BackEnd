@@ -63,6 +63,10 @@ public static class DependencyInjection
         services.AddScoped<ISupportTicketAdminService, SupportTicketAdminService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationAdminService, NotificationAdminService>();
+        services.AddScoped<IProjectFileService, ProjectFileService>();
+        services.AddScoped<IProjectFileAdminService, ProjectFileAdminService>();
+        services.AddScoped<IFileAttachmentService, FileAttachmentService>();
+        services.AddScoped<IFileAttachmentAdminService, FileAttachmentAdminService>();
         return services;
     }
 }
