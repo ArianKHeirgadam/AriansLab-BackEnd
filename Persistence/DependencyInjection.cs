@@ -69,6 +69,10 @@ public static class DependencyInjection
         services.AddScoped<IFileAttachmentAdminService, FileAttachmentAdminService>();
         services.AddScoped<IHeroSectionReadService, HeroSectionReadService>();
         services.AddScoped<IHeroSectionAdminService, HeroSectionAdminService>();
+        services.AddScoped<ISiteSettingReadService, SiteSettingReadService>();
+        services.AddScoped<ISiteSettingAdminService, SiteSettingAdminService>();
+        services.AddScoped<ISettingReadService, SettingReadService>();
+        services.AddScoped<ISettingAdminService, SettingAdminService>();
         return services;
     }
 }
