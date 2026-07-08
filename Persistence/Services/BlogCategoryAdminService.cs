@@ -7,11 +7,11 @@ using Persistence.Context;
 
 namespace Persistence.Services;
 
-public class BlogAdminCategoryService : IBlogAdminCategoryService
+public class BlogCategoryAdminService : IBlogCategoryAdminService
 {
     private readonly ApplicationDbContext _dbContext;
 
-    public BlogAdminCategoryService(ApplicationDbContext dbContext)
+    public BlogCategoryAdminService(ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -27,8 +27,6 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
                 Id = x.Id,
                 Name = x.Name,
                 Slug = x.Slug,
-                PublishedPostCount = _dbContext.BlogPosts.Count(p =>
-                    p.CategoryId == x.Id && p.IsPublished),
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
@@ -47,8 +45,6 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
                 Id = x.Id,
                 Name = x.Name,
                 Slug = x.Slug,
-                PublishedPostCount = _dbContext.BlogPosts.Count(p =>
-                    p.CategoryId == x.Id && p.IsPublished),
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
@@ -59,7 +55,7 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
         CreateBlogCategoryRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        ValidateRequest(request.Name, request.Slug);
+        ValidateBlogCategory(request.Name, request.Slug);
 
         var normalizedSlug = NormalizeSlug(request.Slug);
 
@@ -100,7 +96,7 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
         UpdateBlogCategoryRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        ValidateRequest(request.Name, request.Slug);
+        ValidateBlogCategory(request.Name, request.Slug);
 
         var category = await _dbContext.BlogCategories
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -128,13 +124,10 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return await GetByIdAsync(
-            category.Id,
-            cancellationToken
-        );
+        return await GetByIdAsync(category.Id, cancellationToken);
     }
 
-    public async Task DeleteAsync(
+    public async Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
@@ -143,13 +136,13 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
 
         if (category is null)
         {
-            throw new InvalidOperationException("Blog category was not found.");
+            return false;
         }
 
-        var hasPosts = await _dbContext.BlogPosts
+        var hasBlogPosts = await _dbContext.BlogPosts
             .AnyAsync(x => x.CategoryId == id, cancellationToken);
 
-        if (hasPosts)
+        if (hasBlogPosts)
         {
             throw new InvalidOperationException(
                 "This category has blog posts and cannot be deleted."
@@ -159,9 +152,11 @@ public class BlogAdminCategoryService : IBlogAdminCategoryService
         _dbContext.BlogCategories.Remove(category);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 
-    private static void ValidateRequest(
+    private static void ValidateBlogCategory(
         string name,
         string slug)
     {

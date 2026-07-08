@@ -9,4 +9,8 @@ public class BlogCategoryDto
     public string Slug { get; set; } = string.Empty;
 
     public int PublishedPostCount { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
 }

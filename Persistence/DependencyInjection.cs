@@ -80,6 +80,11 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogReadService, AuditLogReadService>();
         services.AddScoped<IActivityLogWriteService, ActivityLogWriteService>();
         services.AddScoped<IAuditLogWriteService, AuditLogWriteService>();
+        services.AddScoped<ICommentReadService, CommentReadService>();
+        services.AddScoped<ICommentSubmitService, CommentSubmitService>();
+        services.AddScoped<ICommentAdminService, CommentAdminService>();
+        services.AddScoped<IBlogCategoryReadService, BlogCategoryReadService>();
+        services.AddScoped<IBlogCategoryAdminService, BlogCategoryAdminService>();
         return services;
     }
 }

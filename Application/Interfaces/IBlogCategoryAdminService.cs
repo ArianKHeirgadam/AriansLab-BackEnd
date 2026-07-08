@@ -1,9 +1,9 @@
 ﻿using Application.DTOs.Blog;
-using Application.DTOs.Blog.Admin;
+using Application.DTOs.Blog.Admin   ;
 
 namespace Application.Interfaces;
 
-public interface IBlogAdminCategoryService
+public interface IBlogCategoryAdminService
 {
     Task<List<BlogCategoryDto>> GetAllAsync(
         CancellationToken cancellationToken = default);
@@ -21,7 +21,7 @@ public interface IBlogAdminCategoryService
         UpdateBlogCategoryRequestDto request,
         CancellationToken cancellationToken = default);
 
-    Task DeleteAsync(
+    Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 }
