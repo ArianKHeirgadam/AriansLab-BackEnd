@@ -159,6 +159,7 @@ var app = builder.Build();
 await AdminSeeder.SeedAsync(app.Services);
 await BlogSeeder.SeedAsync(app.Services);
 await PortfolioSeeder.SeedAsync(app.Services);
+await PricingSeeder.SeedAsync(app.Services);
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 

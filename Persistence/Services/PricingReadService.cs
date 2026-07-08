@@ -14,7 +14,7 @@ public class PricingReadService : IPricingReadService
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyList<PricingPlanDto>> GetActivePlansAsync(
+    public async Task<List<PricingPlanDto>> GetActivePlansAsync(
         CancellationToken cancellationToken = default)
     {
         return await _dbContext.PricingPlans

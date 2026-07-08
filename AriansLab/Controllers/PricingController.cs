@@ -19,14 +19,15 @@ public class PricingController : ControllerBase
     }
 
     [HttpGet("plans")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<PricingPlanDto>>>> GetPlans(
+    public async Task<ActionResult<ApiResponse<List<PricingPlanDto>>>> GetActivePlans(
         CancellationToken cancellationToken)
     {
-        var result = await _pricingReadService.GetActivePlansAsync(cancellationToken);
+        var plans = await _pricingReadService.GetActivePlansAsync(cancellationToken);
 
-        return Ok(ApiResponse<IReadOnlyList<PricingPlanDto>>.Ok(
-            result,
-            "Pricing plans retrieved successfully."));
+        return Ok(ApiResponse<List<PricingPlanDto>>.Ok(
+            plans,
+            "Pricing plans retrieved successfully."
+        ));
     }
 
     [HttpGet("plans/{id:guid}")]
@@ -34,16 +35,18 @@ public class PricingController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        var result = await _pricingReadService.GetPlanByIdAsync(id, cancellationToken);
+        var plan = await _pricingReadService.GetPlanByIdAsync(id, cancellationToken);
 
-        if (result is null)
+        if (plan is null)
         {
-            return NotFound(ApiResponse<PricingPlanDto>.Fail(
-                "Pricing plan was not found."));
+            return NotFound(ApiResponse.Fail(
+                "Pricing plan was not found."
+            ));
         }
 
         return Ok(ApiResponse<PricingPlanDto>.Ok(
-            result,
-            "Pricing plan retrieved successfully."));
+            plan,
+            "Pricing plan retrieved successfully."
+        ));
     }
 }

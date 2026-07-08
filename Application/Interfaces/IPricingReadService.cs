@@ -4,7 +4,7 @@ namespace Application.Interfaces;
 
 public interface IPricingReadService
 {
-    Task<IReadOnlyList<PricingPlanDto>> GetActivePlansAsync(
+    Task<List<PricingPlanDto>> GetActivePlansAsync(
         CancellationToken cancellationToken = default);
 
     Task<PricingPlanDto?> GetPlanByIdAsync(
