@@ -179,6 +179,7 @@ app.UseCors("FrontendClient");
 app.UseAuthentication();
 
 app.UseAuthorization();
+app.UseMiddleware<AdminAuditLogMiddleware>();
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 

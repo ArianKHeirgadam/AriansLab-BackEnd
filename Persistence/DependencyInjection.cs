@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogReadService, ActivityLogReadService>();
         services.AddScoped<IAuditLogReadService, AuditLogReadService>();
         services.AddScoped<IActivityLogWriteService, ActivityLogWriteService>();
+        services.AddScoped<IAuditLogWriteService, AuditLogWriteService>();
         return services;
     }
 }
