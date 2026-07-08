@@ -73,6 +73,8 @@ public static class DependencyInjection
         services.AddScoped<ISiteSettingAdminService, SiteSettingAdminService>();
         services.AddScoped<ISettingReadService, SettingReadService>();
         services.AddScoped<ISettingAdminService, SettingAdminService>();
+        services.AddScoped<ISocialMediaReadService, SocialMediaReadService>();
+        services.AddScoped<ISocialMediaAdminService, SocialMediaAdminService>();
         return services;
     }
 }
