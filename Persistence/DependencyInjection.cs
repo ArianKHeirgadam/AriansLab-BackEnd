@@ -53,6 +53,8 @@ public static class DependencyInjection
         services.AddScoped<IContactMessageAdminService, ContactMessageAdminService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<IProjectReadService, ProjectReadService>();
+        services.AddScoped<IProjectAdminService, ProjectAdminService>();
         return services;
     }
 }

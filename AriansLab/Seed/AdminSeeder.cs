@@ -12,10 +12,12 @@ public static class AdminSeeder
     {
         using var scope = serviceProvider.CreateScope();
 
-        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("AdminSeeder");
+        var logger = scope.ServiceProvider
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("AdminSeeder");
 
         var adminEmail = configuration["AdminSeed:Email"];
         var adminPassword = configuration["AdminSeed:Password"];
@@ -25,28 +27,57 @@ public static class AdminSeeder
             string.IsNullOrWhiteSpace(adminPassword) ||
             string.IsNullOrWhiteSpace(adminFullName))
         {
-            logger.LogWarning("Admin seed settings are incomplete. Admin user was not seeded.");
+            logger.LogWarning("Admin seed skipped because AdminSeed configuration is incomplete.");
             return;
         }
 
-        var normalizedEmail = adminEmail.Trim().ToUpperInvariant();
+        adminEmail = adminEmail.Trim().ToLowerInvariant();
+        adminFullName = adminFullName.Trim();
 
-        var adminExists = await dbContext.Users
-            .AnyAsync(x => x.NormalizedEmail == normalizedEmail);
+        var adminUserName = adminEmail
+            .Split('@')[0]
+            .Trim()
+            .ToLowerInvariant();
 
-        if (adminExists)
+        var normalizedEmail = adminEmail.ToUpperInvariant();
+        var normalizedUserName = adminUserName.ToUpperInvariant();
+
+        var existingAdmin = await dbContext.Users
+            .FirstOrDefaultAsync(x =>
+                x.NormalizedEmail == normalizedEmail ||
+                x.NormalizedUserName == normalizedUserName ||
+                x.Role == UserRole.Admin);
+
+        if (existingAdmin is not null)
         {
+            existingAdmin.FullName = adminFullName;
+            existingAdmin.Email = adminEmail;
+            existingAdmin.NormalizedEmail = normalizedEmail;
+            existingAdmin.UserName = adminUserName;
+            existingAdmin.NormalizedUserName = normalizedUserName;
+
+            existingAdmin.PasswordHash = passwordHasher.HashPassword(adminPassword);
+
+            existingAdmin.Role = UserRole.Admin;
+            existingAdmin.IsActive = true;
+            existingAdmin.EmailConfirmed = true;
+            existingAdmin.IsDeleted = false;
+
+            await dbContext.SaveChangesAsync();
+
+            logger.LogInformation(
+                "Admin user already exists and was updated. Email: {Email}, UserName: {UserName}",
+                existingAdmin.Email,
+                existingAdmin.UserName
+            );
+
             return;
         }
-
-        var adminUserName = adminEmail.Split('@')[0];
-        var normalizedUserName = adminUserName.Trim().ToUpperInvariant();
 
         var admin = new User
         {
-            Id = Guid.NewGuid(),
-            FullName = adminFullName.Trim(),
-            Email = adminEmail.Trim(),
+            FullName = adminFullName,
+            Email = adminEmail,
             NormalizedEmail = normalizedEmail,
             UserName = adminUserName,
             NormalizedUserName = normalizedUserName,
@@ -61,6 +92,10 @@ public static class AdminSeeder
         await dbContext.Users.AddAsync(admin);
         await dbContext.SaveChangesAsync();
 
-        logger.LogInformation("Admin user seeded successfully. Email: {Email}", admin.Email);
+        logger.LogInformation(
+            "Admin user seeded successfully. Email: {Email}, UserName: {UserName}",
+            admin.Email,
+            admin.UserName
+        );
     }
 }
