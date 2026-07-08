@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceAdminService, InvoiceAdminService>();
         services.AddScoped<IPaymentReadService, PaymentReadService>();
         services.AddScoped<IPaymentAdminService, PaymentAdminService>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
+        services.AddScoped<ISupportTicketAdminService, SupportTicketAdminService>();
         return services;
     }
 }
