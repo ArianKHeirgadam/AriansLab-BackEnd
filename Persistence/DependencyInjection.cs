@@ -76,6 +76,9 @@ public static class DependencyInjection
         services.AddScoped<ISocialMediaReadService, SocialMediaReadService>();
         services.AddScoped<ISocialMediaAdminService, SocialMediaAdminService>();
         services.AddScoped<IEmailTemplateAdminService, EmailTemplateAdminService>();
+        services.AddScoped<IActivityLogReadService, ActivityLogReadService>();
+        services.AddScoped<IAuditLogReadService, AuditLogReadService>();
+        services.AddScoped<IActivityLogWriteService, ActivityLogWriteService>();
         return services;
     }
 }
