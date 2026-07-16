@@ -3,6 +3,7 @@ using Application.Interfaces;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Persistence.Context;
+using System.Net.Mail;
 
 namespace Persistence.Services;
 
@@ -127,9 +128,19 @@ public class CommentSubmitService : ICommentSubmitService
             throw new InvalidOperationException("Message is required.");
         }
 
-        if (!email.Contains('@'))
+        if (fullName.Trim().Length > 150)
+        {
+            throw new InvalidOperationException("Full name must not exceed 150 characters.");
+        }
+
+        if (email.Trim().Length > 256 || !MailAddress.TryCreate(email.Trim(), out _))
         {
             throw new InvalidOperationException("Email is invalid.");
+        }
+
+        if (message.Trim().Length > 3000)
+        {
+            throw new InvalidOperationException("Message must not exceed 3000 characters.");
         }
     }
 }

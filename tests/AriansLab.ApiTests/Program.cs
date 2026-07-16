@@ -39,6 +39,7 @@ public static class DirectTestRunner
         await RunAsync(nameof(AuthFlowTests.DeactivatedUserCookie_IsImmediatelyRejected), authTests.DeactivatedUserCookie_IsImmediatelyRejected, failures);
         await RunAsync(nameof(AuthFlowTests.PasswordChangeInvalidatesExistingAccessCookie), authTests.PasswordChangeInvalidatesExistingAccessCookie, failures);
         await RunAsync(nameof(AuthFlowTests.ReplayedRefreshTokenRevokesTheRotatedSession), authTests.ReplayedRefreshTokenRevokesTheRotatedSession, failures);
+        await RunAsync(nameof(AuthFlowTests.CommentSubmission_WithCsrf_IsStoredPendingApproval), authTests.CommentSubmission_WithCsrf_IsStoredPendingApproval, failures);
 
         Console.WriteLine();
         Console.WriteLine(failures.Count == 0

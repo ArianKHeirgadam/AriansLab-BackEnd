@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Infrastructure.Identity;
+using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -176,6 +177,67 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.False(await dbContext.RefreshTokens.AnyAsync(
             token => token.UserId == userId && !token.IsRevoked));
+    }
+
+    [Fact]
+    public async Task CommentSubmission_WithCsrf_IsStoredPendingApproval()
+    {
+        using var client = _factory.CreateSecureClient();
+        var userId = await RegisterAndGetUserIdAsync(client);
+        var blogPostId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var category = new BlogCategory
+            {
+                Id = Guid.NewGuid(),
+                Name = "Security",
+                Slug = $"security-{Guid.NewGuid():N}"
+            };
+            dbContext.BlogCategories.Add(category);
+            dbContext.BlogPosts.Add(new BlogPost
+            {
+                Id = blogPostId,
+                AuthorId = userId,
+                CategoryId = category.Id,
+                Title = "Comment integration test",
+                Slug = $"comment-integration-{Guid.NewGuid():N}",
+                Excerpt = "Integration test",
+                Content = "Integration test",
+                CoverImage = "/test.jpg",
+                ReadTime = 1,
+                IsPublished = true,
+                PublishedAt = DateTime.UtcNow
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        await AddCsrfHeaderAsync(client);
+        var response = await client.PostAsJsonAsync("/api/comments", new
+        {
+            blogPostId,
+            fullName = "Comment Tester",
+            email = "commenter@example.com",
+            message = "This comment should wait for approval."
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using (var responseDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+        {
+            var publicComment = responseDocument.RootElement.GetProperty("data");
+            Assert.Equal(blogPostId, publicComment.GetProperty("blogPostId").GetGuid());
+            Assert.False(publicComment.TryGetProperty("email", out _));
+            Assert.False(publicComment.TryGetProperty("userEmail", out _));
+            Assert.False(publicComment.TryGetProperty("userId", out _));
+        }
+
+        using var verificationScope = _factory.Services.CreateScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var storedComment = await verificationDb.Comments.SingleAsync(item =>
+            item.BlogPostId == blogPostId && item.Email == "commenter@example.com");
+        Assert.False(storedComment.IsApproved);
+        Assert.Equal(userId, storedComment.UserId);
     }
 
     private async Task<Guid> RegisterAndGetUserIdAsync(HttpClient client)
