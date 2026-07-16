@@ -7,7 +7,9 @@ public class PasswordHasher : IPasswordHasher
 {
     private const int SaltSize = 16;
     private const int KeySize = 32;
-    private const int Iterations = 100_000;
+    private const int Iterations = 600_000;
+    private const int LegacyIterations = 100_000;
+    private const int MaximumAcceptedIterations = 1_000_000;
     private const char Delimiter = '.';
 
     public string HashPassword(string password)
@@ -49,13 +51,20 @@ public class PasswordHasher : IPasswordHasher
                 return false;
             }
 
-            if (!int.TryParse(parts[0], out var iterations))
+            if (!int.TryParse(parts[0], out var iterations) ||
+                iterations < LegacyIterations ||
+                iterations > MaximumAcceptedIterations)
             {
                 return false;
             }
 
             var salt = Convert.FromBase64String(parts[1]);
             var expectedHash = Convert.FromBase64String(parts[2]);
+
+            if (salt.Length != SaltSize || expectedHash.Length != KeySize)
+            {
+                return false;
+            }
 
             var actualHash = Rfc2898DeriveBytes.Pbkdf2(
                 password,
@@ -70,5 +79,18 @@ public class PasswordHasher : IPasswordHasher
         {
             return false;
         }
+    }
+
+    public bool NeedsRehash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+        {
+            return true;
+        }
+
+        var parts = passwordHash.Split(Delimiter);
+        return parts.Length != 3 ||
+               !int.TryParse(parts[0], out var iterations) ||
+               iterations != Iterations;
     }
 }

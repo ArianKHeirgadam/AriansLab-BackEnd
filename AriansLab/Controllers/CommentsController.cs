@@ -2,6 +2,7 @@
 using Application.DTOs.Comments;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace AriansLab.Api.Controllers;
@@ -74,6 +75,7 @@ public class CommentsController : ControllerBase
     /// Submits a new public comment. If the request has a valid bearer token, user id will be attached.
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting("public-write")]
     [ProducesResponseType(typeof(ApiResponse<CommentDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ApiResponse<CommentDto>>> Create(

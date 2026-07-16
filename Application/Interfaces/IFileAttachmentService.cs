@@ -8,7 +8,7 @@ public interface IFileAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<List<FileAttachmentDto>> GetPublicByReferenceAsync(
+    Task<List<PublicFileAttachmentDto>> GetPublicByReferenceAsync(
         string module,
         Guid referenceId,
         CancellationToken cancellationToken = default);

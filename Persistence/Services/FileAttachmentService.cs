@@ -43,7 +43,7 @@ public class FileAttachmentService : IFileAttachmentService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<FileAttachmentDto>> GetPublicByReferenceAsync(
+    public async Task<List<PublicFileAttachmentDto>> GetPublicByReferenceAsync(
         string module,
         Guid referenceId,
         CancellationToken cancellationToken = default)
@@ -57,7 +57,7 @@ public class FileAttachmentService : IFileAttachmentService
                 x.ReferenceId == referenceId &&
                 x.IsPublic)
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new FileAttachmentDto
+            .Select(x => new PublicFileAttachmentDto
             {
                 Id = x.Id,
                 FileName = x.FileName,
@@ -66,12 +66,8 @@ public class FileAttachmentService : IFileAttachmentService
                 Extension = x.Extension,
                 ContentType = x.ContentType,
                 Size = x.Size,
-                UploadedByUserId = x.UploadedByUserId,
-                UploadedByFullName = x.UploadedByUser.FullName,
-                UploadedByEmail = x.UploadedByUser.Email,
                 Module = x.Module,
                 ReferenceId = x.ReferenceId,
-                IsPublic = x.IsPublic,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })

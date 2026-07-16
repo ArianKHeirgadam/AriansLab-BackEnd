@@ -82,13 +82,13 @@ public class AdminBlogPostsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> Delete(
+    public async Task<ActionResult<ApiResponse<object?>>> Delete(
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
         await _blogAdminPostService.DeleteAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Ok(
+        return Ok(ApiResponse<object?>.Ok(
             null,
             "Blog post deleted successfully."));
     }

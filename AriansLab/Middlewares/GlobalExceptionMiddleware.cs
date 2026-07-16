@@ -1,6 +1,5 @@
 ﻿using Application.Common.Exceptions;
 using Application.Common.Models;
-using System.Net;
 using System.Text.Json;
 namespace AriansLab.Api.Middlewares
 {
@@ -8,16 +7,12 @@ namespace AriansLab.Api.Middlewares
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<GlobalExceptionMiddleware> _logger;
-        private readonly IWebHostEnvironment _environment;
-
         public GlobalExceptionMiddleware(
             RequestDelegate next,
-            ILogger<GlobalExceptionMiddleware> logger,
-            IWebHostEnvironment environment)
+            ILogger<GlobalExceptionMiddleware> logger)
         {
             _next = next;
             _logger = logger;
-            _environment = environment;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -59,19 +54,11 @@ namespace AriansLab.Api.Middlewares
                     "Unhandled exception occurred. Path: {Path}",
                     context.Request.Path);
 
-                var errors = _environment.IsDevelopment()
-                    ? new
-                    {
-                        exception.Message,
-                        exception.StackTrace
-                    }
-                    : null;
-
                 await WriteErrorResponseAsync(
                     context,
                     StatusCodes.Status500InternalServerError,
                     "An unexpected error occurred.",
-                    errors);
+                    new { traceId = context.TraceIdentifier });
             }
         }
 
@@ -89,6 +76,7 @@ namespace AriansLab.Api.Middlewares
             context.Response.Clear();
             context.Response.StatusCode = statusCode;
             context.Response.ContentType = "application/json";
+            context.Response.Headers.CacheControl = "no-store";
 
             var response = ApiResponse.Fail(message, errors);
 
@@ -97,7 +85,7 @@ namespace AriansLab.Api.Middlewares
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            await context.Response.WriteAsync(json);
+            await context.Response.WriteAsync(json, context.RequestAborted);
         }
     }
 }

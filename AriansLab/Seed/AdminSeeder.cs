@@ -1,101 +1,102 @@
-﻿using Application.Interfaces;
+using Application.Interfaces;
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Persistence.Context;
+using System.Net.Mail;
+using System.Text.RegularExpressions;
 
 namespace AriansLab.Api.Seed;
 
-public static class AdminSeeder
+public static partial class AdminSeeder
 {
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("AdminSeeder");
+
+        if (!configuration.GetValue<bool>("AdminSeed:Enabled"))
+        {
+            logger.LogInformation("Admin seed is disabled.");
+            return;
+        }
+
+        var fullName = configuration["AdminSeed:FullName"]?.Trim();
+        var email = configuration["AdminSeed:Email"]?.Trim().ToLowerInvariant();
+        var password = configuration["AdminSeed:Password"];
+        var configuredUserName = configuration["AdminSeed:UserName"]?.Trim();
+
+        if (string.IsNullOrWhiteSpace(fullName) || fullName.Length > 150 ||
+            string.IsNullOrWhiteSpace(email) || email.Length > 256 || !IsValidEmail(email) ||
+            !IsStrongPassword(password))
+        {
+            throw new InvalidOperationException("Enabled AdminSeed configuration is invalid or insecure.");
+        }
+
+        var userName = string.IsNullOrWhiteSpace(configuredUserName)
+            ? email.Split('@')[0]
+            : configuredUserName;
+
+        if (userName.Length is < 3 or > 100 || !UserNamePattern().IsMatch(userName))
+        {
+            throw new InvalidOperationException("AdminSeed UserName is invalid.");
+        }
 
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        if (await dbContext.Users.AnyAsync(user => user.Role == UserRole.Admin))
+        {
+            logger.LogInformation("Admin seed skipped because an administrator already exists.");
+            return;
+        }
+
+        var normalizedEmail = email.ToUpperInvariant();
+        var normalizedUserName = userName.ToUpperInvariant();
+        if (await dbContext.Users.AnyAsync(user =>
+                user.NormalizedEmail == normalizedEmail || user.NormalizedUserName == normalizedUserName))
+        {
+            throw new InvalidOperationException("AdminSeed email or username already belongs to another account.");
+        }
+
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-        var logger = scope.ServiceProvider
-            .GetRequiredService<ILoggerFactory>()
-            .CreateLogger("AdminSeeder");
-
-        var adminEmail = configuration["AdminSeed:Email"];
-        var adminPassword = configuration["AdminSeed:Password"];
-        var adminFullName = configuration["AdminSeed:FullName"];
-
-        if (string.IsNullOrWhiteSpace(adminEmail) ||
-            string.IsNullOrWhiteSpace(adminPassword) ||
-            string.IsNullOrWhiteSpace(adminFullName))
+        await dbContext.Users.AddAsync(new User
         {
-            logger.LogWarning("Admin seed skipped because AdminSeed configuration is incomplete.");
-            return;
-        }
-
-        adminEmail = adminEmail.Trim().ToLowerInvariant();
-        adminFullName = adminFullName.Trim();
-
-        var adminUserName = adminEmail
-            .Split('@')[0]
-            .Trim()
-            .ToLowerInvariant();
-
-        var normalizedEmail = adminEmail.ToUpperInvariant();
-        var normalizedUserName = adminUserName.ToUpperInvariant();
-
-        var existingAdmin = await dbContext.Users
-            .FirstOrDefaultAsync(x =>
-                x.NormalizedEmail == normalizedEmail ||
-                x.NormalizedUserName == normalizedUserName ||
-                x.Role == UserRole.Admin);
-
-        if (existingAdmin is not null)
-        {
-            existingAdmin.FullName = adminFullName;
-            existingAdmin.Email = adminEmail;
-            existingAdmin.NormalizedEmail = normalizedEmail;
-            existingAdmin.UserName = adminUserName;
-            existingAdmin.NormalizedUserName = normalizedUserName;
-
-            existingAdmin.PasswordHash = passwordHasher.HashPassword(adminPassword);
-
-            existingAdmin.Role = UserRole.Admin;
-            existingAdmin.IsActive = true;
-            existingAdmin.EmailConfirmed = true;
-            existingAdmin.IsDeleted = false;
-
-            await dbContext.SaveChangesAsync();
-
-            logger.LogInformation(
-                "Admin user already exists and was updated. Email: {Email}, UserName: {UserName}",
-                existingAdmin.Email,
-                existingAdmin.UserName
-            );
-
-            return;
-        }
-
-        var admin = new User
-        {
-            FullName = adminFullName,
-            Email = adminEmail,
+            FullName = fullName,
+            Email = email,
             NormalizedEmail = normalizedEmail,
-            UserName = adminUserName,
+            UserName = userName,
             NormalizedUserName = normalizedUserName,
-            PasswordHash = passwordHasher.HashPassword(adminPassword),
+            PasswordHash = passwordHasher.HashPassword(password!),
             Role = UserRole.Admin,
             IsActive = true,
-            EmailConfirmed = true,
-            CreatedAt = DateTime.UtcNow,
-            IsDeleted = false
-        };
-
-        await dbContext.Users.AddAsync(admin);
+            EmailConfirmed = true
+        });
         await dbContext.SaveChangesAsync();
 
-        logger.LogInformation(
-            "Admin user seeded successfully. Email: {Email}, UserName: {UserName}",
-            admin.Email,
-            admin.UserName
-        );
+        logger.LogInformation("Initial administrator was created successfully.");
     }
+
+    private static bool IsValidEmail(string value)
+    {
+        try
+        {
+            return new MailAddress(value).Address.Equals(value, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsStrongPassword(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Length is >= 12 and <= 128 &&
+               value.Any(char.IsUpper) &&
+               value.Any(char.IsLower) &&
+               value.Any(char.IsDigit);
+    }
+
+    [GeneratedRegex("^[a-zA-Z0-9._-]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex UserNamePattern();
 }
