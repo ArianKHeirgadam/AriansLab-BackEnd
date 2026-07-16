@@ -186,7 +186,7 @@ public class AdminAuditLogMiddleware
                     .Replace("-", string.Empty, StringComparison.Ordinal)
                     .ToLowerInvariant();
 
-                if (SensitiveKeyFragments.Any(fragment => normalizedKey.EndsWith(fragment, StringComparison.Ordinal)))
+                if (SensitiveKeyFragments.Any(fragment => normalizedKey.Contains(fragment, StringComparison.Ordinal)))
                 {
                     jsonObject[property.Key] = "[REDACTED]";
                 }

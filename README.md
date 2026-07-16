@@ -67,12 +67,13 @@ If a local VSTest installation is unavailable, the same scenarios have a direct 
 dotnet run --project tests/AriansLab.ApiTests/AriansLab.ApiTests.csproj --configuration Release
 ```
 
-Tests cover password hashing and legacy upgrades, malformed hash rejection, mandatory CSRF, the complete register → cookie → `/me` → refresh → logout flow, customer denial on admin endpoints, immediate access-cookie invalidation after account or password changes, and refresh-token replay detection with session-family revocation.
+Tests cover password hashing and legacy upgrades, malformed hash rejection, mandatory CSRF, the complete register → cookie → `/me` → refresh → logout flow, the deny-by-default authorization policy and explicit public routes, customer denial on admin endpoints, immediate access-cookie invalidation after account or password changes, and refresh-token replay detection with session-family revocation.
 
 ## Production security checklist
 
 - Rotate every database password, JWT key, administrator credential, and repository token that has ever been exposed.
 - Restrict `AllowedHosts` and CORS to exact production hosts; never use wildcards with credentials.
+- Keep the fallback authorization policy enabled and mark every intentionally public endpoint explicitly with `[AllowAnonymous]`.
 - Terminate TLS only at a trusted reverse proxy and configure its address as a known proxy before accepting forwarded headers.
 - Persist ASP.NET Core Data Protection keys in a protected shared key store when running multiple instances.
 - Keep Swagger disabled in production, apply database backups, centralize logs, and alert on repeated 401/403/429 responses.

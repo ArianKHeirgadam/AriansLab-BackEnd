@@ -1,12 +1,14 @@
 ﻿using Application.Common.Models;
 using Application.DTOs.HeroSections;
 using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AriansLab.Api.Controllers;
 
 [ApiController]
 [Route("api/hero-sections")]
+[AllowAnonymous]
 [Produces("application/json")]
 public class HeroSectionsController : ControllerBase
 {

@@ -29,6 +29,7 @@ public static class DirectTestRunner
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);
         await RunAsync(nameof(AuthFlowTests.CookieAuth_RegisterRefreshLogout_CompletesEndToEnd), authTests.CookieAuth_RegisterRefreshLogout_CompletesEndToEnd, failures);
         await RunAsync(nameof(AuthFlowTests.CustomerCookie_CannotAccessAdminEndpoints), authTests.CustomerCookie_CannotAccessAdminEndpoints, failures);
+        await RunAsync(nameof(AuthFlowTests.FallbackPolicy_RequiresAuthentication_AndPublicRoutesAreExplicit), authTests.FallbackPolicy_RequiresAuthentication_AndPublicRoutesAreExplicit, failures);
         await RunAsync(nameof(AuthFlowTests.DeactivatedUserCookie_IsImmediatelyRejected), authTests.DeactivatedUserCookie_IsImmediatelyRejected, failures);
         await RunAsync(nameof(AuthFlowTests.PasswordChangeInvalidatesExistingAccessCookie), authTests.PasswordChangeInvalidatesExistingAccessCookie, failures);
         await RunAsync(nameof(AuthFlowTests.ReplayedRefreshTokenRevokesTheRotatedSession), authTests.ReplayedRefreshTokenRevokesTheRotatedSession, failures);

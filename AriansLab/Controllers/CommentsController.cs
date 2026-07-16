@@ -1,6 +1,7 @@
 ﻿using Application.Common.Models;
 using Application.DTOs.Comments;
 using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
@@ -9,6 +10,7 @@ namespace AriansLab.Api.Controllers;
 
 [ApiController]
 [Route("api/comments")]
+[AllowAnonymous]
 [Produces("application/json")]
 public class CommentsController : ControllerBase
 {

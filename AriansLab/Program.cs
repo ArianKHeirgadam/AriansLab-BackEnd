@@ -7,6 +7,7 @@ using AriansLab.Api.Security;
 using AriansLab.Api.Seed;
 using Asp.Versioning;
 using Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -137,6 +138,9 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
             ValidateLifetime = true,
+            RequireExpirationTime = true,
+            RequireSignedTokens = true,
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
             ClockSkew = TimeSpan.FromSeconds(30)
         };
         options.Events = new JwtBearerEvents
@@ -181,7 +185,12 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
@@ -278,7 +287,7 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Description = "Optional Bearer token support for trusted non-browser clients.",
+        Description = "Bearer authentication is available to trusted clients. Unsafe requests must also satisfy CSRF validation.",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
@@ -350,14 +359,14 @@ app.UseMiddleware<AdminAuditLogMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapGet("/", () => Results.Redirect("/swagger"));
+    app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
 }
 else
 {
-    app.MapGet("/", () => Results.Ok(new { service = "AriansLab API", status = "ok" }));
+    app.MapGet("/", () => Results.Ok(new { service = "AriansLab API", status = "ok" })).AllowAnonymous();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapControllers();
 app.Run();
 
@@ -379,6 +388,7 @@ static bool IsValidOrigin(string? origin)
 {
     return Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+           string.IsNullOrEmpty(uri.UserInfo) &&
            string.IsNullOrEmpty(uri.PathAndQuery.Trim('/')) &&
            string.IsNullOrEmpty(uri.Fragment);
 }

@@ -24,9 +24,9 @@ namespace AriansLab.Api.Middlewares
             catch (ApiException exception)
             {
                 _logger.LogWarning(
-                    exception,
-                    "Handled API exception occurred. Path: {Path}",
-                    context.Request.Path);
+                    "Handled API exception occurred. Path: {Path}; StatusCode: {StatusCode}",
+                    context.Request.Path,
+                    exception.StatusCode);
 
                 await WriteErrorResponseAsync(
                     context,
@@ -34,10 +34,9 @@ namespace AriansLab.Api.Middlewares
                     exception.Message,
                     exception.Errors);
             }
-            catch (UnauthorizedAccessException exception)
+            catch (UnauthorizedAccessException)
             {
                 _logger.LogWarning(
-                    exception,
                     "Unauthorized access exception occurred. Path: {Path}",
                     context.Request.Path);
 

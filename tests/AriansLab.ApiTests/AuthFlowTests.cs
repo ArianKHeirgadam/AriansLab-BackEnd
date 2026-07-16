@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Infrastructure.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,6 +82,25 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
 
         var response = await client.GetAsync("/api/admin/users");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task FallbackPolicy_RequiresAuthentication_AndPublicRoutesAreExplicit()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var policyProvider = scope.ServiceProvider.GetRequiredService<IAuthorizationPolicyProvider>();
+            var fallbackPolicy = await policyProvider.GetFallbackPolicyAsync();
+            Assert.NotNull(fallbackPolicy);
+            Assert.Contains(
+                fallbackPolicy.Requirements,
+                requirement => requirement is DenyAnonymousAuthorizationRequirement);
+        }
+
+        using var client = _factory.CreateSecureClient();
+        (await client.GetAsync("/health")).EnsureSuccessStatusCode();
+        (await client.GetAsync("/api/technologies")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/Auth/me")).StatusCode);
     }
 
     [Fact]

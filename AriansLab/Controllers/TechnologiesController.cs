@@ -1,12 +1,14 @@
 ﻿using Application.Common.Models;
 using Application.DTOs.Technologies;
 using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AriansLab.Api.Controllers;
 
 [ApiController]
 [Route("api/technologies")]
+[AllowAnonymous]
 [Produces("application/json")]
 public class TechnologiesController : ControllerBase
 {
