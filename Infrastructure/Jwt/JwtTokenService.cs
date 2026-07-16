@@ -1,5 +1,6 @@
 ﻿using Application.Interfaces;
 using Application.Settings;
+using Application.Security;
 using Domain.Entities;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -40,7 +41,8 @@ public class JwtTokenService : IJwtTokenService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.UserName),
             new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Role, user.Role.ToString()),
+            new(UserSecurityStamp.ClaimType, UserSecurityStamp.Create(user))
         };
 
         var token = new JwtSecurityToken(

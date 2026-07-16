@@ -3,6 +3,7 @@ using Application.DTOs.ContactMessages;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AriansLab.Api.Controllers;
 
@@ -23,6 +24,7 @@ public class ContactMessagesController : ControllerBase
     /// Submits a new contact message from the public website.
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting("public-write")]
     [ProducesResponseType(typeof(ApiResponse<ContactMessageSubmissionResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ApiResponse<ContactMessageSubmissionResultDto>>> Create(

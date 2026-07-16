@@ -1,44 +1,42 @@
-﻿using Application.DTOs.Profile;
+using Application.DTOs.Profile;
 using Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Persistence.Context;
+using System.Net.Mail;
+using System.Text.RegularExpressions;
 
 namespace Persistence.Services;
 
-public class ProfileService : IProfileService
+public partial class ProfileService : IProfileService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
 
-    public ProfileService(
-        ApplicationDbContext dbContext,
-        IPasswordHasher passwordHasher)
+    public ProfileService(ApplicationDbContext dbContext, IPasswordHasher passwordHasher)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<ProfileDto?> GetMeAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public Task<ProfileDto?> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Users
+        return _dbContext.Users
             .AsNoTracking()
-            .Where(x => x.Id == userId)
-            .Select(x => new ProfileDto
+            .Where(user => user.Id == userId && user.IsActive)
+            .Select(user => new ProfileDto
             {
-                Id = x.Id,
-                FullName = x.FullName,
-                Email = x.Email,
-                UserName = x.UserName,
-                PhoneNumber = x.PhoneNumber,
-                Role = x.Role,
-                IsActive = x.IsActive,
-                EmailConfirmed = x.EmailConfirmed,
-                Avatar = x.Avatar,
-                LastLoginAt = x.LastLoginAt,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                UserName = user.UserName,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role,
+                IsActive = user.IsActive,
+                EmailConfirmed = user.EmailConfirmed,
+                Avatar = user.Avatar,
+                LastLoginAt = user.LastLoginAt,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
             })
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -49,9 +47,9 @@ public class ProfileService : IProfileService
         CancellationToken cancellationToken = default)
     {
         ValidateUpdateRequest(request);
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(
+            item => item.Id == userId,
+            cancellationToken);
 
         if (user is null)
         {
@@ -65,41 +63,33 @@ public class ProfileService : IProfileService
 
         var email = request.Email.Trim().ToLowerInvariant();
         var userName = NormalizeUserName(request.UserName, email);
+        var normalizedEmail = email.ToUpperInvariant();
+        var normalizedUserName = userName.ToUpperInvariant();
 
-        var emailExists = await _dbContext.Users
-            .AnyAsync(
-                x => x.Id != userId &&
-                     x.NormalizedEmail == email.ToUpperInvariant(),
-                cancellationToken
-            );
-
-        if (emailExists)
+        if (await _dbContext.Users.AnyAsync(
+                item => item.Id != userId && item.NormalizedEmail == normalizedEmail,
+                cancellationToken))
         {
             throw new InvalidOperationException("A user with this email already exists.");
         }
 
-        var userNameExists = await _dbContext.Users
-            .AnyAsync(
-                x => x.Id != userId &&
-                     x.NormalizedUserName == userName.ToUpperInvariant(),
-                cancellationToken
-            );
-
-        if (userNameExists)
+        if (await _dbContext.Users.AnyAsync(
+                item => item.Id != userId && item.NormalizedUserName == normalizedUserName,
+                cancellationToken))
         {
             throw new InvalidOperationException("A user with this username already exists.");
         }
 
         user.FullName = request.FullName.Trim();
         user.Email = email;
-        user.NormalizedEmail = email.ToUpperInvariant();
+        user.NormalizedEmail = normalizedEmail;
         user.UserName = userName;
-        user.NormalizedUserName = userName.ToUpperInvariant();
-        user.PhoneNumber = request.PhoneNumber?.Trim();
-        user.Avatar = request.Avatar?.Trim();
+        user.NormalizedUserName = normalizedUserName;
+        user.PhoneNumber = NormalizeNullable(request.PhoneNumber);
+        user.Avatar = NormalizeNullable(request.Avatar);
 
+        await RevokeActiveRefreshTokensAsync(userId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
-
         return await GetMeAsync(user.Id, cancellationToken);
     }
 
@@ -109,9 +99,9 @@ public class ProfileService : IProfileService
         CancellationToken cancellationToken = default)
     {
         ValidateChangePasswordRequest(request);
-
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        var user = await _dbContext.Users.FirstOrDefaultAsync(
+            item => item.Id == userId,
+            cancellationToken);
 
         if (user is null)
         {
@@ -123,74 +113,97 @@ public class ProfileService : IProfileService
             throw new InvalidOperationException("User account is not active.");
         }
 
-        var currentPasswordIsValid = _passwordHasher.VerifyPassword(
-            request.CurrentPassword,
-            user.PasswordHash
-        );
-
-        if (!currentPasswordIsValid)
+        if (!_passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
         {
             throw new InvalidOperationException("Current password is incorrect.");
         }
 
-        user.PasswordHash = _passwordHasher.HashPassword(
-            request.NewPassword
-        );
-
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        await RevokeActiveRefreshTokensAsync(userId, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
-
         return true;
+    }
+
+    private async Task RevokeActiveRefreshTokensAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var tokens = await _dbContext.RefreshTokens
+            .Where(token => token.UserId == userId && !token.IsRevoked)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in tokens)
+        {
+            token.IsRevoked = true;
+        }
     }
 
     private static void ValidateUpdateRequest(UpdateProfileRequestDto request)
     {
-        if (string.IsNullOrWhiteSpace(request.FullName))
+        if (string.IsNullOrWhiteSpace(request.FullName) || request.FullName.Trim().Length > 150)
         {
-            throw new InvalidOperationException("Full name is required.");
+            throw new InvalidOperationException("Full name is required and cannot exceed 150 characters.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Email))
+        ValidateEmail(request.Email);
+        if (!string.IsNullOrWhiteSpace(request.UserName) &&
+            (request.UserName.Trim().Length is < 3 or > 100 || !UserNamePattern().IsMatch(request.UserName.Trim())))
         {
-            throw new InvalidOperationException("Email is required.");
+            throw new InvalidOperationException("Username format is invalid.");
         }
 
-        if (!request.Email.Contains('@'))
+        if (request.PhoneNumber?.Trim().Length > 30 || request.Avatar?.Trim().Length > 2048)
         {
-            throw new InvalidOperationException("Email format is invalid.");
+            throw new InvalidOperationException("Profile field length is invalid.");
         }
     }
 
-    private static void ValidateChangePasswordRequest(
-        ChangePasswordRequestDto request)
+    private static void ValidateChangePasswordRequest(ChangePasswordRequestDto request)
     {
-        if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || request.CurrentPassword.Length > 128)
         {
             throw new InvalidOperationException("Current password is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.NewPassword))
-        {
-            throw new InvalidOperationException("New password is required.");
-        }
-
-        if (request.NewPassword.Length < 8)
-        {
-            throw new InvalidOperationException("New password must be at least 8 characters.");
-        }
-
+        ValidateStrongPassword(request.NewPassword);
         if (request.CurrentPassword == request.NewPassword)
         {
             throw new InvalidOperationException("New password must be different from current password.");
         }
     }
 
-    private static string NormalizeUserName(string? userName, string email)
+    private static void ValidateStrongPassword(string value)
     {
-        if (!string.IsNullOrWhiteSpace(userName))
+        if (string.IsNullOrWhiteSpace(value) || value.Length is < 12 or > 128 ||
+            !value.Any(char.IsUpper) || !value.Any(char.IsLower) || !value.Any(char.IsDigit))
         {
-            return userName.Trim().ToLowerInvariant();
+            throw new InvalidOperationException(
+                "Password must be 12 to 128 characters and include uppercase, lowercase and a number.");
         }
-
-        return email.Split('@')[0].Trim().ToLowerInvariant();
     }
+
+    private static void ValidateEmail(string value)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(value) || value.Trim().Length > 256 ||
+                !new MailAddress(value.Trim()).Address.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new FormatException();
+            }
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("Email format is invalid.");
+        }
+    }
+
+    private static string NormalizeUserName(string? userName, string email) =>
+        string.IsNullOrWhiteSpace(userName)
+            ? email.Split('@')[0].Trim().ToLowerInvariant()
+            : userName.Trim().ToLowerInvariant();
+
+    private static string? NormalizeNullable(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    [GeneratedRegex("^[a-zA-Z0-9._-]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex UserNamePattern();
 }

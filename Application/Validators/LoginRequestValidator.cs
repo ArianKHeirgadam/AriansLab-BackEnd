@@ -13,6 +13,6 @@ public class LoginRequestValidator : AbstractValidator<LoginRequestDto>
 
         RuleFor(x => x.Password)
             .NotEmpty()
-            .MaximumLength(100);
+            .MaximumLength(128);
     }
 }

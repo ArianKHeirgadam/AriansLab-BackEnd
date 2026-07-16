@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infrastructure", "Infrastru
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Persistence", "Persistence\Persistence.csproj", "{50F87259-10AF-46AA-8669-7E25F9F4CE63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AriansLab.ApiTests", "tests\AriansLab.ApiTests\AriansLab.ApiTests.csproj", "{1D72E5C4-937B-4F9B-9D47-E31C184C91A6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{50F87259-10AF-46AA-8669-7E25F9F4CE63}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{50F87259-10AF-46AA-8669-7E25F9F4CE63}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{50F87259-10AF-46AA-8669-7E25F9F4CE63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D72E5C4-937B-4F9B-9D47-E31C184C91A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D72E5C4-937B-4F9B-9D47-E31C184C91A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D72E5C4-937B-4F9B-9D47-E31C184C91A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D72E5C4-937B-4F9B-9D47-E31C184C91A6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

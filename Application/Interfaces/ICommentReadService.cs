@@ -4,11 +4,11 @@ namespace Application.Interfaces;
 
 public interface ICommentReadService
 {
-    Task<List<CommentDto>> GetApprovedByBlogPostIdAsync(
+    Task<List<PublicCommentDto>> GetApprovedByBlogPostIdAsync(
         Guid blogPostId,
         CancellationToken cancellationToken = default);
 
-    Task<CommentDto?> GetApprovedByIdAsync(
+    Task<PublicCommentDto?> GetApprovedByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 }

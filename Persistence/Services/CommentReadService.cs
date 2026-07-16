@@ -14,7 +14,7 @@ public class CommentReadService : ICommentReadService
         _dbContext = dbContext;
     }
 
-    public async Task<List<CommentDto>> GetApprovedByBlogPostIdAsync(
+    public async Task<List<PublicCommentDto>> GetApprovedByBlogPostIdAsync(
         Guid blogPostId,
         CancellationToken cancellationToken = default)
     {
@@ -22,45 +22,33 @@ public class CommentReadService : ICommentReadService
             .AsNoTracking()
             .Where(x => x.BlogPostId == blogPostId && x.IsApproved)
             .OrderBy(x => x.CreatedAt)
-            .Select(x => new CommentDto
+            .Select(x => new PublicCommentDto
             {
                 Id = x.Id,
                 BlogPostId = x.BlogPostId,
-                BlogPostTitle = x.BlogPost.Title,
-                UserId = x.UserId,
-                UserFullName = x.User != null ? x.User.FullName : null,
-                UserEmail = x.User != null ? x.User.Email : null,
                 ParentCommentId = x.ParentCommentId,
                 FullName = x.FullName,
-                Email = x.Email,
                 Message = x.Message,
-                IsApproved = x.IsApproved,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<CommentDto?> GetApprovedByIdAsync(
+    public async Task<PublicCommentDto?> GetApprovedByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
         return await _dbContext.Comments
             .AsNoTracking()
             .Where(x => x.Id == id && x.IsApproved)
-            .Select(x => new CommentDto
+            .Select(x => new PublicCommentDto
             {
                 Id = x.Id,
                 BlogPostId = x.BlogPostId,
-                BlogPostTitle = x.BlogPost.Title,
-                UserId = x.UserId,
-                UserFullName = x.User != null ? x.User.FullName : null,
-                UserEmail = x.User != null ? x.User.Email : null,
                 ParentCommentId = x.ParentCommentId,
                 FullName = x.FullName,
-                Email = x.Email,
                 Message = x.Message,
-                IsApproved = x.IsApproved,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })

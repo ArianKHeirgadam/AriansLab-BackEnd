@@ -2,12 +2,18 @@
 using Application.Interfaces;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AriansLab.Api.Middlewares;
 
 public class AdminAuditLogMiddleware
 {
     private const int MaxBodyLength = 20_000;
+    private static readonly string[] SensitiveKeyFragments =
+    [
+        "password", "token", "secret", "apikey", "connectionstring"
+    ];
 
     private readonly RequestDelegate _next;
     private readonly ILogger<AdminAuditLogMiddleware> _logger;
@@ -137,21 +143,66 @@ public class AdminAuditLogMiddleware
             leaveOpen: true
         );
 
-        var body = await reader.ReadToEndAsync();
+        var buffer = new char[MaxBodyLength + 1];
+        var read = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
 
         context.Request.Body.Position = 0;
 
+        if (read == 0)
+        {
+            return null;
+        }
+
+        if (read > MaxBodyLength)
+        {
+            return JsonSerializer.Serialize(new { truncated = true });
+        }
+
+        var body = new string(buffer, 0, read);
         if (string.IsNullOrWhiteSpace(body))
         {
             return null;
         }
 
-        if (body.Length > MaxBodyLength)
+        try
         {
-            return body[..MaxBodyLength] + "...";
+            var node = JsonNode.Parse(body);
+            Redact(node);
+            return node?.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
         }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
-        return body;
+    private static void Redact(JsonNode? node)
+    {
+        if (node is JsonObject jsonObject)
+        {
+            foreach (var property in jsonObject.ToList())
+            {
+                var normalizedKey = property.Key.Replace("_", string.Empty, StringComparison.Ordinal)
+                    .Replace("-", string.Empty, StringComparison.Ordinal)
+                    .ToLowerInvariant();
+
+                if (SensitiveKeyFragments.Any(fragment => normalizedKey.Contains(fragment, StringComparison.Ordinal)))
+                {
+                    jsonObject[property.Key] = "[REDACTED]";
+                }
+                else
+                {
+                    Redact(property.Value);
+                }
+            }
+        }
+        else if (node is JsonArray jsonArray)
+        {
+            foreach (var item in jsonArray)
+            {
+                Redact(item);
+            }
+        }
     }
 
     private static Guid? GetUserId(HttpContext context)
@@ -259,14 +310,6 @@ public class AdminAuditLogMiddleware
 
     private static string? GetClientIpAddress(HttpContext context)
     {
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"]
-            .FirstOrDefault();
-
-        if (!string.IsNullOrWhiteSpace(forwardedFor))
-        {
-            return forwardedFor.Split(',')[0].Trim();
-        }
-
         return context.Connection.RemoteIpAddress?.ToString();
     }
 

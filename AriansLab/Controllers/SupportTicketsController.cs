@@ -3,6 +3,7 @@ using Application.DTOs.SupportTickets;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace AriansLab.Api.Controllers;
@@ -92,6 +93,7 @@ public class SupportTicketsController : ControllerBase
     /// Creates a new support ticket for the authenticated user.
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting("public-write")]
     [ProducesResponseType(typeof(ApiResponse<SupportTicketDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
@@ -135,6 +137,7 @@ public class SupportTicketsController : ControllerBase
     /// Adds a new message to one of the authenticated user's support tickets.
     /// </summary>
     [HttpPost("my/{id:guid}/messages")]
+    [EnableRateLimiting("public-write")]
     [ProducesResponseType(typeof(ApiResponse<SupportTicketDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]

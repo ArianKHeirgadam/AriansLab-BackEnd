@@ -8,8 +8,14 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
-        const string connectionString =
-     "Server=ARIANSLAPTOP;Database=AriansLabDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+        var connectionString = Environment.GetEnvironmentVariable(
+            "ConnectionStrings__DefaultConnection");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Set ConnectionStrings__DefaultConnection before running Entity Framework commands.");
+        }
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
 

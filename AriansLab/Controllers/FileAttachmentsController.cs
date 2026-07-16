@@ -54,8 +54,8 @@ public class FileAttachmentsController : ControllerBase
     /// </summary>
     [HttpGet("public/{module}/{referenceId:guid}")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ApiResponse<List<FileAttachmentDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<List<FileAttachmentDto>>>> GetPublicByReference(
+    [ProducesResponseType(typeof(ApiResponse<List<PublicFileAttachmentDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<List<PublicFileAttachmentDto>>>> GetPublicByReference(
         [FromRoute] string module,
         [FromRoute] Guid referenceId,
         CancellationToken cancellationToken)
@@ -66,7 +66,7 @@ public class FileAttachmentsController : ControllerBase
             cancellationToken
         );
 
-        return Ok(ApiResponse<List<FileAttachmentDto>>.Ok(
+        return Ok(ApiResponse<List<PublicFileAttachmentDto>>.Ok(
             attachments,
             "Public file attachments retrieved successfully."
         ));

@@ -1,13 +1,16 @@
 ﻿using Application.Common.Models;
 using Application.DTOs.Comments;
 using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace AriansLab.Api.Controllers;
 
 [ApiController]
 [Route("api/comments")]
+[AllowAnonymous]
 [Produces("application/json")]
 public class CommentsController : ControllerBase
 {
@@ -26,8 +29,8 @@ public class CommentsController : ControllerBase
     /// Gets approved comments for a blog post.
     /// </summary>
     [HttpGet("blog-post/{blogPostId:guid}/approved")]
-    [ProducesResponseType(typeof(ApiResponse<List<CommentDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<List<CommentDto>>>> GetApprovedByBlogPostId(
+    [ProducesResponseType(typeof(ApiResponse<List<PublicCommentDto>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<List<PublicCommentDto>>>> GetApprovedByBlogPostId(
         [FromRoute] Guid blogPostId,
         CancellationToken cancellationToken)
     {
@@ -36,7 +39,7 @@ public class CommentsController : ControllerBase
             cancellationToken
         );
 
-        return Ok(ApiResponse<List<CommentDto>>.Ok(
+        return Ok(ApiResponse<List<PublicCommentDto>>.Ok(
             comments,
             "Approved comments retrieved successfully."
         ));
@@ -46,9 +49,9 @@ public class CommentsController : ControllerBase
     /// Gets a single approved comment by id.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(ApiResponse<CommentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PublicCommentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CommentDto>>> GetApprovedById(
+    public async Task<ActionResult<ApiResponse<PublicCommentDto>>> GetApprovedById(
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
@@ -64,7 +67,7 @@ public class CommentsController : ControllerBase
             ));
         }
 
-        return Ok(ApiResponse<CommentDto>.Ok(
+        return Ok(ApiResponse<PublicCommentDto>.Ok(
             comment,
             "Comment retrieved successfully."
         ));
@@ -74,9 +77,10 @@ public class CommentsController : ControllerBase
     /// Submits a new public comment. If the request has a valid bearer token, user id will be attached.
     /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(ApiResponse<CommentDto>), StatusCodes.Status201Created)]
+    [EnableRateLimiting("public-write")]
+    [ProducesResponseType(typeof(ApiResponse<PublicCommentDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ApiResponse<CommentDto>>> Create(
+    public async Task<ActionResult<ApiResponse<PublicCommentDto>>> Create(
         [FromBody] CreateCommentRequestDto request,
         CancellationToken cancellationToken)
     {
@@ -90,11 +94,10 @@ public class CommentsController : ControllerBase
                 cancellationToken
             );
 
-            return CreatedAtAction(
-                nameof(GetApprovedById),
-                new { id = comment.Id },
-                ApiResponse<CommentDto>.Ok(
-                    comment,
+            return StatusCode(
+                StatusCodes.Status201Created,
+                ApiResponse<PublicCommentDto>.Ok(
+                    ToPublicComment(comment),
                     "Comment submitted successfully and is waiting for approval."
                 )
             );
@@ -103,6 +106,20 @@ public class CommentsController : ControllerBase
         {
             return BadRequest(ApiResponse.Fail(ex.Message));
         }
+    }
+
+    private static PublicCommentDto ToPublicComment(CommentDto comment)
+    {
+        return new PublicCommentDto
+        {
+            Id = comment.Id,
+            BlogPostId = comment.BlogPostId,
+            ParentCommentId = comment.ParentCommentId,
+            FullName = comment.FullName,
+            Message = comment.Message,
+            CreatedAt = comment.CreatedAt,
+            UpdatedAt = comment.UpdatedAt
+        };
     }
 
     private Guid? GetCurrentUserId()

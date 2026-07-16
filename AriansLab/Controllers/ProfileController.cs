@@ -1,9 +1,11 @@
 ﻿using Application.Common.Models;
 using Application.DTOs.Profile;
 using Application.Interfaces;
+using AriansLab.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.Extensions.Options;
 
 namespace AriansLab.Api.Controllers;
 
@@ -14,10 +16,14 @@ namespace AriansLab.Api.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;
+    private readonly AuthCookieSettings _cookieSettings;
 
-    public ProfileController(IProfileService profileService)
+    public ProfileController(
+        IProfileService profileService,
+        IOptions<AuthCookieSettings> cookieSettings)
     {
         _profileService = profileService;
+        _cookieSettings = cookieSettings.Value;
     }
 
     /// <summary>
@@ -140,6 +146,8 @@ public class ProfileController : ControllerBase
                 ));
             }
 
+            DeleteAuthCookies();
+
             return Ok(ApiResponse.Ok(
                 "Password changed successfully."
             ));
@@ -148,6 +156,36 @@ public class ProfileController : ControllerBase
         {
             return BadRequest(ApiResponse.Fail(ex.Message));
         }
+    }
+
+    private void DeleteAuthCookies()
+    {
+        var sameSite = _cookieSettings.SameSite.Trim().ToLowerInvariant() switch
+        {
+            "strict" => SameSiteMode.Strict,
+            "none" => SameSiteMode.None,
+            _ => SameSiteMode.Lax
+        };
+        var common = new CookieOptions
+        {
+            Secure = _cookieSettings.Secure,
+            HttpOnly = true,
+            SameSite = sameSite,
+            Path = "/"
+        };
+
+        Response.Cookies.Delete(AuthCookieSettings.AccessCookieName, common);
+        Response.Cookies.Delete(AuthCookieSettings.RememberCookieName, common);
+        Response.Cookies.Delete(AuthCookieSettings.AntiforgeryCookieName, common);
+        Response.Cookies.Delete(
+            AuthCookieSettings.RefreshCookieName,
+            new CookieOptions
+            {
+                Secure = _cookieSettings.Secure,
+                HttpOnly = true,
+                SameSite = sameSite,
+                Path = "/api/Auth"
+            });
     }
 
     private Guid? GetCurrentUserId()
