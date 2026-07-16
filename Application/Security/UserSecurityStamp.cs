@@ -10,14 +10,18 @@ public static class UserSecurityStamp
 
     public static string Create(User user)
     {
-        var changedAt = (user.UpdatedAt ?? user.CreatedAt).ToUniversalTime().Ticks;
+        // SQL Server returns DateTime columns with Kind=Unspecified. The values in
+        // this application are stored as UTC, so normalize the kind without
+        // applying a local-time conversion that would change the stamp.
+        var changedAt = user.UpdatedAt ?? user.CreatedAt;
+        var changedAtUtcTicks = DateTime.SpecifyKind(changedAt, DateTimeKind.Utc).Ticks;
         var source = string.Join(
             '|',
             user.Id.ToString("N"),
             user.PasswordHash,
             (int)user.Role,
             user.IsActive,
-            changedAt);
+            changedAtUtcTicks);
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(source)));
     }

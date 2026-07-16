@@ -24,6 +24,12 @@ public static class DirectTestRunner
                 failures);
         }
 
+        var securityStampTests = new UserSecurityStampTests();
+        await RunAsync(
+            nameof(UserSecurityStampTests.Create_IsStableWhenSqlServerReturnsUnspecifiedDateTimeKind),
+            () => RunSync(securityStampTests.Create_IsStableWhenSqlServerReturnsUnspecifiedDateTimeKind),
+            failures);
+
         using var factory = new ApiFactory();
         var authTests = new AuthFlowTests(factory);
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);
