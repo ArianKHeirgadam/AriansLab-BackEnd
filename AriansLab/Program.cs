@@ -326,7 +326,8 @@ app.Use(async (context, next) =>
                 "default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'");
         }
 
-        if (context.Request.Path.StartsWithSegments("/api/Auth"))
+        if (context.Request.Path.StartsWithSegments("/api/Auth") ||
+            context.Request.Path.StartsWithSegments("/api/admin"))
         {
             context.Response.Headers.CacheControl = "no-store";
             context.Response.Headers.Pragma = "no-cache";

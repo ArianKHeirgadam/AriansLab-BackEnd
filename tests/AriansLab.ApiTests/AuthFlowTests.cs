@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Infrastructure.Identity;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -223,9 +224,11 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Guid createdCommentId;
         using (var responseDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
         {
             var publicComment = responseDocument.RootElement.GetProperty("data");
+            createdCommentId = publicComment.GetProperty("id").GetGuid();
             Assert.Equal(blogPostId, publicComment.GetProperty("blogPostId").GetGuid());
             Assert.False(publicComment.TryGetProperty("email", out _));
             Assert.False(publicComment.TryGetProperty("userEmail", out _));
@@ -238,6 +241,57 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
             item.BlogPostId == blogPostId && item.Email == "commenter@example.com");
         Assert.False(storedComment.IsApproved);
         Assert.Equal(userId, storedComment.UserId);
+
+        using var adminClient = await CreateAdminClientAsync();
+        var adminListResponse = await adminClient.GetAsync(
+            "/api/admin/comments?isApproved=false&skip=0&take=500");
+        adminListResponse.EnsureSuccessStatusCode();
+        Assert.Equal("no-store", adminListResponse.Headers.CacheControl?.ToString());
+
+        using var adminListDocument = JsonDocument.Parse(
+            await adminListResponse.Content.ReadAsStringAsync());
+        var pendingComments = adminListDocument.RootElement.GetProperty("data");
+        Assert.Contains(
+            pendingComments.EnumerateArray(),
+            item => item.GetProperty("id").GetGuid() == createdCommentId &&
+                    !item.GetProperty("isApproved").GetBoolean());
+    }
+
+    private async Task<HttpClient> CreateAdminClientAsync()
+    {
+        const string password = "AdminTestPassword123!";
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var email = $"admin-{suffix}@example.com";
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            dbContext.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                FullName = "Admin Test User",
+                Email = email,
+                NormalizedEmail = email.ToUpperInvariant(),
+                UserName = $"admin_{suffix}",
+                NormalizedUserName = $"ADMIN_{suffix.ToUpperInvariant()}",
+                PasswordHash = new PasswordHasher().HashPassword(password),
+                Role = UserRole.Admin,
+                IsActive = true,
+                EmailConfirmed = true
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        var adminClient = _factory.CreateSecureClient();
+        await AddCsrfHeaderAsync(adminClient);
+        var loginResponse = await adminClient.PostAsJsonAsync("/api/Auth/login", new
+        {
+            emailOrUserName = email,
+            password,
+            rememberMe = false
+        });
+        loginResponse.EnsureSuccessStatusCode();
+        return adminClient;
     }
 
     private async Task<Guid> RegisterAndGetUserIdAsync(HttpClient client)
