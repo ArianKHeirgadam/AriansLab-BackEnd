@@ -4,7 +4,8 @@ using Persistence.Context;
 
 namespace Persistence.DesignTime;
 
-public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
+public class ApplicationDbContextFactory
+    : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
@@ -14,20 +15,23 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Set ConnectionStrings__DefaultConnection before running Entity Framework commands.");
+                "Environment variable 'ConnectionStrings__DefaultConnection' was not found.");
         }
 
-        var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
+        var optionsBuilder =
+            new DbContextOptionsBuilder<ApplicationDbContext>();
 
-        optionsBuilder.UseSqlServer(
+        optionsBuilder.UseNpgsql(
             connectionString,
-            sqlServerOptions =>
+            npgsqlOptions =>
             {
-                sqlServerOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                sqlServerOptions.EnableRetryOnFailure(
+                npgsqlOptions.MigrationsAssembly(
+                    typeof(ApplicationDbContext).Assembly.FullName);
+
+                npgsqlOptions.EnableRetryOnFailure(
                     maxRetryCount: 5,
                     maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorNumbersToAdd: null);
+                    errorCodesToAdd: null);
             });
 
         return new ApplicationDbContext(optionsBuilder.Options);

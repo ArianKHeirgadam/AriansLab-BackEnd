@@ -21,18 +21,19 @@ public static class DependencyInjection
         {
             throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
         }
-
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseSqlServer(
+            options.UseNpgsql(
                 connectionString,
-                sqlServerOptions =>
+                npgsqlOptions =>
                 {
-                    sqlServerOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                    sqlServerOptions.EnableRetryOnFailure(
+                    npgsqlOptions.MigrationsAssembly(
+                        typeof(ApplicationDbContext).Assembly.FullName);
+
+                    npgsqlOptions.EnableRetryOnFailure(
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorNumbersToAdd: null);
+                        errorCodesToAdd: null);
                 });
         });
 
