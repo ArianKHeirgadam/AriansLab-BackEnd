@@ -364,7 +364,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.MapGet("/", () => Results.Ok(new { service = "AriansLab API", status = "ok" })).AllowAnonymous();
+    app.MapGet("/", () => Results.Ok(new { service = "AriansLab API", status = "healthy" })).AllowAnonymous();
 }
 
 app.MapHealthChecks("/health").AllowAnonymous();

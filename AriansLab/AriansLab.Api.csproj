@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>AriansLab.Api</RootNamespace>
     <AssemblyName>AriansLab.Api</AssemblyName>
+    <UserSecretsId>6e0b7880-e046-4043-851a-62db9692dd57</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
