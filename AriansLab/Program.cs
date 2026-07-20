@@ -301,7 +301,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     await AdminSeeder.SeedAsync(app.Services);
     await BlogSeeder.SeedAsync(app.Services);
-    await PortfolioSeeder.SeedAsync(app.Services);
+    //await PortfolioSeeder.SeedAsync(app.Services);
     await PricingSeeder.SeedAsync(app.Services);
     await ServicesSeeder.SeedAsync(app.Services);
 }
