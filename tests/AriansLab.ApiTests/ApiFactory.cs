@@ -25,7 +25,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:AccessTokenExpirationMinutes", "15");
         builder.UseSetting("Jwt:RefreshTokenExpirationDays", "7");
         builder.UseSetting("AuthCookies:Secure", "true");
-        builder.UseSetting("AuthCookies:SameSite", "Lax");
+        builder.UseSetting("AuthCookies:SameSite", "None");
+        builder.UseSetting("AuthCookies:Partitioned", "true");
         builder.UseSetting("Cors:AllowedOrigins:0", "https://localhost");
         builder.UseSetting("AllowedHosts", "*");
         builder.ConfigureAppConfiguration((_, configuration) =>
@@ -39,7 +40,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Jwt:AccessTokenExpirationMinutes"] = "15",
                 ["Jwt:RefreshTokenExpirationDays"] = "7",
                 ["AuthCookies:Secure"] = "true",
-                ["AuthCookies:SameSite"] = "Lax",
+                ["AuthCookies:SameSite"] = "None",
+                ["AuthCookies:Partitioned"] = "true",
                 ["Cors:AllowedOrigins:0"] = "https://localhost",
                 ["AllowedHosts"] = "*",
                 ["AdminSeed:Enabled"] = "false"

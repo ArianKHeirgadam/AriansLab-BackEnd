@@ -81,6 +81,11 @@ if (cookieSameSite == SameSiteMode.None && !authCookieSettings.Secure)
     throw new InvalidOperationException("SameSite=None cookies must be Secure.");
 }
 
+if (authCookieSettings.Partitioned && cookieSameSite != SameSiteMode.None)
+{
+    throw new InvalidOperationException("Partitioned authentication cookies must use SameSite=None.");
+}
+
 builder.Services.AddSingleton(jwtSettings);
 builder.Services.Configure<AuthCookieSettings>(
     builder.Configuration.GetSection(AuthCookieSettings.SectionName));
@@ -256,6 +261,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth", context => CreateFixedWindow(context, 10, TimeSpan.FromMinutes(1)));
     options.AddPolicy("csrf", context => CreateFixedWindow(context, 60, TimeSpan.FromMinutes(1)));
     options.AddPolicy("public-write", context => CreateFixedWindow(context, 30, TimeSpan.FromMinutes(1)));
+    options.AddPolicy("analytics", context => CreateFixedWindow(context, 60, TimeSpan.FromMinutes(1)));
     options.OnRejected = async (context, cancellationToken) =>
     {
         if (!context.HttpContext.Response.HasStarted)
@@ -299,6 +305,12 @@ var app = builder.Build();
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
+    using (var migrationScope = app.Services.CreateScope())
+    {
+        var dbContext = migrationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await dbContext.Database.MigrateAsync();
+    }
+
     await AdminSeeder.SeedAsync(app.Services);
     await BlogSeeder.SeedAsync(app.Services);
     //await PortfolioSeeder.SeedAsync(app.Services);
@@ -307,6 +319,17 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.UseForwardedHeaders();
+app.UseCookiePolicy(new CookiePolicyOptions
+{
+    OnAppendCookie = context => ApplyPartitionedCookieAttribute(
+        context.CookieName,
+        context.CookieOptions,
+        authCookieSettings.Partitioned),
+    OnDeleteCookie = context => ApplyPartitionedCookieAttribute(
+        context.CookieName,
+        context.CookieOptions,
+        authCookieSettings.Partitioned)
+});
 app.UseSerilogRequestLogging();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
@@ -400,5 +423,24 @@ static SameSiteMode ParseSameSite(string value) => value.Trim().ToLowerInvariant
     "none" => SameSiteMode.None,
     _ => SameSiteMode.Lax
 };
+
+static void ApplyPartitionedCookieAttribute(
+    string cookieName,
+    CookieOptions cookieOptions,
+    bool partitioned)
+{
+    if (!partitioned ||
+        (cookieName != AuthCookieSettings.AccessCookieName &&
+         cookieName != AuthCookieSettings.RefreshCookieName &&
+         cookieName != AuthCookieSettings.RememberCookieName &&
+         cookieName != AuthCookieSettings.AntiforgeryCookieName) ||
+        cookieOptions.Extensions.Any(value =>
+            value.Equals("Partitioned", StringComparison.OrdinalIgnoreCase)))
+    {
+        return;
+    }
+
+    cookieOptions.Extensions.Add("Partitioned");
+}
 
 public partial class Program;

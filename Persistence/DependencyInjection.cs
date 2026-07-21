@@ -42,6 +42,8 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenRotationService, RefreshTokenRotationService>();
 
         services.AddScoped<IBlogReadService, BlogReadService>();
+        services.AddScoped<IAnalyticsReadService, AnalyticsReadService>();
+        services.AddScoped<IAnalyticsWriteService, AnalyticsWriteService>();
         services.AddScoped<IBlogAdminCategoryService, BlogAdminCategoryService>();
         services.AddScoped<IBlogAdminPostService, BlogAdminPostService>();
         services.AddScoped<IPortfolioReadService, PortfolioReadService>();

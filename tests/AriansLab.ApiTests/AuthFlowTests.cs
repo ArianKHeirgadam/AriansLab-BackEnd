@@ -50,10 +50,13 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
         Assert.Contains(registrationCookies, value =>
             value.Contains("__Host-AriansLab.Access=", StringComparison.Ordinal) &&
             value.Contains("httponly", StringComparison.OrdinalIgnoreCase) &&
-            value.Contains("secure", StringComparison.OrdinalIgnoreCase));
+            value.Contains("secure", StringComparison.OrdinalIgnoreCase) &&
+            value.Contains("samesite=none", StringComparison.OrdinalIgnoreCase) &&
+            value.Contains("partitioned", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(registrationCookies, value =>
             value.Contains("__Secure-AriansLab.Refresh=", StringComparison.Ordinal) &&
-            value.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+            value.Contains("httponly", StringComparison.OrdinalIgnoreCase) &&
+            value.Contains("partitioned", StringComparison.OrdinalIgnoreCase));
 
         (await client.GetAsync("/api/Auth/me")).EnsureSuccessStatusCode();
 
@@ -84,6 +87,28 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
 
         var response = await client.GetAsync("/api/admin/users");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnonymousAnalyticsPageView_DoesNotRequireCsrfOrAuthCookie()
+    {
+        using var client = _factory.CreateSecureClient();
+        var visitorId = Guid.NewGuid();
+        var response = await client.PostAsJsonAsync("/api/analytics/page-view", new
+        {
+            path = "/products?campaign=integration-test",
+            visitorId,
+            sessionId = Guid.NewGuid(),
+            referrerHost = "example.com"
+        });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Contains(
+            await dbContext.PageViews.ToListAsync(),
+            item => item.Path == "/products" && item.VisitorIdHash.Length == 64);
     }
 
     [Fact]
@@ -319,6 +344,10 @@ public class AuthFlowTests : IClassFixture<ApiFactory>
     {
         var response = await client.GetAsync("/api/Auth/csrf-token");
         response.EnsureSuccessStatusCode();
+        Assert.Contains(GetSetCookieHeaders(response), value =>
+            value.Contains("__Host-AriansLab.Csrf=", StringComparison.Ordinal) &&
+            value.Contains("samesite=none", StringComparison.OrdinalIgnoreCase) &&
+            value.Contains("partitioned", StringComparison.OrdinalIgnoreCase));
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var token = document.RootElement.GetProperty("data").GetProperty("token").GetString();
         Assert.False(string.IsNullOrWhiteSpace(token));

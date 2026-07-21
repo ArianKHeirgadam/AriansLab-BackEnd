@@ -40,11 +40,22 @@ public static class DirectTestRunner
             portfolioAdminTests.Delete_SoftDeletesPortfolioAndRelatedRecords,
             failures);
 
+        var analyticsTests = new AnalyticsServiceTests();
+        await RunAsync(
+            nameof(AnalyticsServiceTests.TrackPageView_NormalizesHashesAndDeduplicates),
+            analyticsTests.TrackPageView_NormalizesHashesAndDeduplicates,
+            failures);
+        await RunAsync(
+            nameof(AnalyticsServiceTests.Dashboard_UsesStoredTrafficAndBusinessData),
+            analyticsTests.Dashboard_UsesStoredTrafficAndBusinessData,
+            failures);
+
         using var factory = new ApiFactory();
         var authTests = new AuthFlowTests(factory);
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);
         await RunAsync(nameof(AuthFlowTests.CookieAuth_RegisterRefreshLogout_CompletesEndToEnd), authTests.CookieAuth_RegisterRefreshLogout_CompletesEndToEnd, failures);
         await RunAsync(nameof(AuthFlowTests.CustomerCookie_CannotAccessAdminEndpoints), authTests.CustomerCookie_CannotAccessAdminEndpoints, failures);
+        await RunAsync(nameof(AuthFlowTests.AnonymousAnalyticsPageView_DoesNotRequireCsrfOrAuthCookie), authTests.AnonymousAnalyticsPageView_DoesNotRequireCsrfOrAuthCookie, failures);
         await RunAsync(nameof(AuthFlowTests.FallbackPolicy_RequiresAuthentication_AndPublicRoutesAreExplicit), authTests.FallbackPolicy_RequiresAuthentication_AndPublicRoutesAreExplicit, failures);
         await RunAsync(nameof(AuthFlowTests.DeactivatedUserCookie_IsImmediatelyRejected), authTests.DeactivatedUserCookie_IsImmediatelyRejected, failures);
         await RunAsync(nameof(AuthFlowTests.PasswordChangeInvalidatesExistingAccessCookie), authTests.PasswordChangeInvalidatesExistingAccessCookie, failures);

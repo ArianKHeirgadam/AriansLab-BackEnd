@@ -37,6 +37,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public DbSet<PageView> PageViews => Set<PageView>();
+
     public DbSet<Payment> Payments => Set<Payment>();
 
     public DbSet<PlanFeature> PlanFeatures => Set<PlanFeature>();

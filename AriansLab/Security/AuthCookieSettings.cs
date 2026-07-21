@@ -11,4 +11,6 @@ public sealed class AuthCookieSettings
     public bool Secure { get; set; } = true;
 
     public string SameSite { get; set; } = "Lax";
+
+    public bool Partitioned { get; set; }
 }
