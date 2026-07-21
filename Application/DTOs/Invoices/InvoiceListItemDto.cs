@@ -24,6 +24,14 @@ public class InvoiceListItemDto
 
     public bool IsPaid { get; set; }
 
+    public bool IsFinalized { get; set; }
+
+    public bool HasPendingPayment { get; set; }
+
+    public decimal PaidAmount { get; set; }
+
+    public decimal RemainingAmount { get; set; }
+
     public DateTime? PaidAt { get; set; }
 
     public DateTime DueDate { get; set; }

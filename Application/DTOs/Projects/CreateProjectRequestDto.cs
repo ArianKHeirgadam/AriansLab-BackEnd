@@ -31,4 +31,18 @@ public class CreateProjectRequestDto
     public string? AdminNote { get; set; }
 
     public string? CustomerComment { get; set; }
+
+    /// <summary>
+    /// Creates the first provisional invoice atomically with the project.
+    /// Existing API clients keep the old behavior unless they opt in.
+    /// </summary>
+    public bool CreateInitialInvoice { get; set; }
+
+    public DateTime? InvoiceDueDate { get; set; }
+
+    public decimal InvoiceDiscountAmount { get; set; }
+
+    public decimal InvoiceTaxAmount { get; set; }
+
+    public string? InvoiceDescription { get; set; }
 }

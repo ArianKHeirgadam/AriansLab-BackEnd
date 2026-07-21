@@ -85,6 +85,16 @@ public class PaymentAdminService : IPaymentAdminService
     {
         await ValidateInvoiceAsync(request.InvoiceId, cancellationToken);
         ValidatePaymentFields(request.Amount, request.Gateway);
+        ValidatePaymentStatus(request.Status);
+
+        if (request.Status == PaymentStatus.Paid)
+        {
+            await ValidateApprovedPaymentAmountAsync(
+                Guid.Empty,
+                request.InvoiceId,
+                request.Amount,
+                cancellationToken);
+        }
 
         var payment = new Payment
         {
@@ -100,7 +110,7 @@ public class PaymentAdminService : IPaymentAdminService
             TrackingCode = request.TrackingCode?.Trim(),
             GatewayResponse = request.GatewayResponse?.Trim(),
             PaidAt = request.Status == PaymentStatus.Paid
-                ? request.PaidAt ?? DateTime.UtcNow
+                ? NormalizeUtc(request.PaidAt) ?? DateTime.UtcNow
                 : null
         };
 
@@ -129,6 +139,7 @@ public class PaymentAdminService : IPaymentAdminService
     {
         await ValidateInvoiceAsync(request.InvoiceId, cancellationToken);
         ValidatePaymentFields(request.Amount, request.Gateway);
+        ValidatePaymentStatus(request.Status);
 
         var payment = await _dbContext.Payments
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -138,7 +149,19 @@ public class PaymentAdminService : IPaymentAdminService
             return null;
         }
 
+        EnsurePaymentRecordIsEditable(payment);
+
+        ValidateStatusTransition(payment.Status, request.Status);
         var oldInvoiceId = payment.InvoiceId;
+
+        if (request.Status == PaymentStatus.Paid)
+        {
+            await ValidateApprovedPaymentAmountAsync(
+                payment.Id,
+                request.InvoiceId,
+                request.Amount,
+                cancellationToken);
+        }
 
         payment.InvoiceId = request.InvoiceId;
         payment.Amount = request.Amount;
@@ -152,7 +175,7 @@ public class PaymentAdminService : IPaymentAdminService
         payment.TrackingCode = request.TrackingCode?.Trim();
         payment.GatewayResponse = request.GatewayResponse?.Trim();
         payment.PaidAt = request.Status == PaymentStatus.Paid
-            ? request.PaidAt ?? payment.PaidAt ?? DateTime.UtcNow
+            ? NormalizeUtc(request.PaidAt) ?? payment.PaidAt ?? DateTime.UtcNow
             : null;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -180,12 +203,26 @@ public class PaymentAdminService : IPaymentAdminService
         UpdatePaymentStatusRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        ValidatePaymentStatus(request.Status);
+
         var payment = await _dbContext.Payments
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (payment is null)
         {
             return null;
+        }
+
+        var previousStatus = payment.Status;
+        ValidateStatusTransition(previousStatus, request.Status);
+
+        if (request.Status == PaymentStatus.Paid)
+        {
+            await ValidateApprovedPaymentAmountAsync(
+                payment.Id,
+                payment.InvoiceId,
+                payment.Amount,
+                cancellationToken);
         }
 
         payment.Status = request.Status;
@@ -195,15 +232,18 @@ public class PaymentAdminService : IPaymentAdminService
         payment.GatewayResponse = request.GatewayResponse?.Trim() ?? payment.GatewayResponse;
 
         payment.PaidAt = request.Status == PaymentStatus.Paid
-            ? request.PaidAt ?? payment.PaidAt ?? DateTime.UtcNow
+            ? NormalizeUtc(request.PaidAt) ?? payment.PaidAt ?? DateTime.UtcNow
             : null;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        await SyncInvoiceAndProjectPaymentStateAsync(
+        var syncResult = await SyncInvoiceAndProjectPaymentStateAsync(
             payment.InvoiceId,
             cancellationToken
         );
+
+        if (previousStatus != request.Status && syncResult is not null)
+        {
+            AddCustomerReviewNotification(syncResult, request.Status);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -222,6 +262,8 @@ public class PaymentAdminService : IPaymentAdminService
             return false;
         }
 
+        EnsurePaymentRecordIsEditable(payment);
+
         var invoiceId = payment.InvoiceId;
 
         _dbContext.Payments.Remove(payment);
@@ -236,6 +278,15 @@ public class PaymentAdminService : IPaymentAdminService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    private static void EnsurePaymentRecordIsEditable(Payment payment)
+    {
+        if (payment.Status is PaymentStatus.Paid or PaymentStatus.Refunded)
+        {
+            throw new InvalidOperationException(
+                "Approved or refunded payments cannot be edited or deleted. Change their status through the review action.");
+        }
     }
 
     private async Task ValidateInvoiceAsync(
@@ -266,7 +317,7 @@ public class PaymentAdminService : IPaymentAdminService
         }
     }
 
-    private async Task SyncInvoiceAndProjectPaymentStateAsync(
+    private async Task<PaymentSyncResult?> SyncInvoiceAndProjectPaymentStateAsync(
         Guid invoiceId,
         CancellationToken cancellationToken)
     {
@@ -276,7 +327,7 @@ public class PaymentAdminService : IPaymentAdminService
 
         if (invoice is null)
         {
-            return;
+            return null;
         }
 
         var payments = await _dbContext.Payments
@@ -318,17 +369,170 @@ public class PaymentAdminService : IPaymentAdminService
             invoice.PaidAt = null;
         }
 
-        var projectPaidAmount = await _dbContext.Payments
-            .Where(x =>
-                x.Status == PaymentStatus.Paid &&
-                x.Invoice.ProjectId == invoice.ProjectId)
-            .SumAsync(x => x.Amount, cancellationToken);
+        // Do not filter by status in SQL here: during review, the changed
+        // payment is still tracked and intentionally saved together with the
+        // invoice/project state in one atomic SaveChanges call.
+        var projectPayments = await _dbContext.Payments
+            .Where(x => x.Invoice.ProjectId == invoice.ProjectId)
+            .ToListAsync(cancellationToken);
+        var projectPaidAmount = projectPayments
+            .Where(x => x.Status == PaymentStatus.Paid)
+            .Sum(x => x.Amount);
 
-        invoice.Project.PaidAmount = projectPaidAmount;
+        invoice.Project.PaidAmount = Math.Min(
+            invoice.Project.Price,
+            projectPaidAmount);
+
+        var projectStarted = false;
+        if (invoice.Status == PaymentStatus.Paid &&
+            invoice.Project.Status == ProjectStatus.Pending)
+        {
+            invoice.Project.Status = ProjectStatus.InProgress;
+            invoice.Project.StartDate ??= DateTime.UtcNow;
+            projectStarted = true;
+        }
+
+        return new PaymentSyncResult(
+            invoice.UserId,
+            invoice.InvoiceNumber,
+            invoice.Project.Title,
+            invoice.Status == PaymentStatus.Paid,
+            projectStarted);
+    }
+
+    private async Task ValidateApprovedPaymentAmountAsync(
+        Guid paymentId,
+        Guid invoiceId,
+        decimal paymentAmount,
+        CancellationToken cancellationToken)
+    {
+        var finalAmount = await _dbContext.Invoices
+            .Where(item => item.Id == invoiceId)
+            .Select(item => (decimal?)item.FinalAmount)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!finalAmount.HasValue)
+        {
+            throw new InvalidOperationException("Invoice was not found.");
+        }
+
+        var otherApprovedAmount = await _dbContext.Payments
+            .Where(item =>
+                item.InvoiceId == invoiceId &&
+                item.Id != paymentId &&
+                item.Status == PaymentStatus.Paid)
+            .SumAsync(item => item.Amount, cancellationToken);
+
+        if (otherApprovedAmount + paymentAmount > finalAmount.Value)
+        {
+            throw new InvalidOperationException(
+                "Approved payments cannot be greater than the invoice final amount.");
+        }
+    }
+
+    private void AddCustomerReviewNotification(
+        PaymentSyncResult result,
+        PaymentStatus status)
+    {
+        var notification = status switch
+        {
+            PaymentStatus.Paid when result.InvoiceFinalized => new Notification
+            {
+                UserId = result.UserId,
+                Type = NotificationType.Success,
+                Title = "پرداخت تأیید و فاکتور نهایی شد",
+                Message = result.ProjectStarted
+                    ? $"پرداخت فاکتور {result.InvoiceNumber} تأیید شد و پروژه {result.ProjectTitle} وارد مرحله اجرا شد."
+                    : $"پرداخت فاکتور {result.InvoiceNumber} تأیید و فاکتور نهایی شد."
+            },
+            PaymentStatus.Paid => new Notification
+            {
+                UserId = result.UserId,
+                Type = NotificationType.Info,
+                Title = "پرداخت تأیید شد",
+                Message = $"پرداخت ثبت‌شده برای فاکتور {result.InvoiceNumber} تأیید شد."
+            },
+            PaymentStatus.Failed => new Notification
+            {
+                UserId = result.UserId,
+                Type = NotificationType.Error,
+                Title = "پرداخت تأیید نشد",
+                Message = $"پرداخت ثبت‌شده برای فاکتور {result.InvoiceNumber} رد شد؛ اطلاعات پرداخت را بررسی و دوباره ثبت کنید."
+            },
+            PaymentStatus.Refunded => new Notification
+            {
+                UserId = result.UserId,
+                Type = NotificationType.Warning,
+                Title = "پرداخت بازپرداخت شد",
+                Message = $"پرداخت فاکتور {result.InvoiceNumber} در وضعیت بازپرداخت قرار گرفت."
+            },
+            _ => null
+        };
+
+        if (notification is not null)
+        {
+            notification.IsRead = false;
+            _dbContext.Notifications.Add(notification);
+        }
+    }
+
+    private static void ValidatePaymentStatus(PaymentStatus status)
+    {
+        if (!Enum.IsDefined(typeof(PaymentStatus), status))
+        {
+            throw new InvalidOperationException("Payment status is invalid.");
+        }
+    }
+
+    private static void ValidateStatusTransition(
+        PaymentStatus currentStatus,
+        PaymentStatus nextStatus)
+    {
+        if (currentStatus == nextStatus)
+        {
+            return;
+        }
+
+        var isAllowed = currentStatus switch
+        {
+            PaymentStatus.Pending => nextStatus is PaymentStatus.Paid or PaymentStatus.Failed,
+            PaymentStatus.Failed => nextStatus is PaymentStatus.Pending or PaymentStatus.Paid,
+            PaymentStatus.Paid => nextStatus == PaymentStatus.Refunded,
+            PaymentStatus.Refunded => false,
+            _ => false
+        };
+
+        if (!isAllowed)
+        {
+            throw new InvalidOperationException(
+                $"Payment status cannot change from {currentStatus} to {nextStatus}.");
+        }
+    }
+
+    private static DateTime? NormalizeUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
     }
 
     private static string GenerateManualAuthority()
     {
         return $"MANUAL-{Guid.NewGuid():N}".ToUpperInvariant();
     }
+
+    private sealed record PaymentSyncResult(
+        Guid UserId,
+        string InvoiceNumber,
+        string ProjectTitle,
+        bool InvoiceFinalized,
+        bool ProjectStarted);
 }

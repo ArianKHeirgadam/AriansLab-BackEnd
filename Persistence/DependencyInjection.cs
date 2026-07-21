@@ -63,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceReadService, InvoiceReadService>();
         services.AddScoped<IInvoiceAdminService, InvoiceAdminService>();
         services.AddScoped<IPaymentReadService, PaymentReadService>();
+        services.AddScoped<IPaymentSubmissionService, PaymentSubmissionService>();
         services.AddScoped<IPaymentAdminService, PaymentAdminService>();
         services.AddScoped<ISupportTicketService, SupportTicketService>();
         services.AddScoped<ISupportTicketAdminService, SupportTicketAdminService>();

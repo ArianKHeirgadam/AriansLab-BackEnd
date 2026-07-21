@@ -155,23 +155,30 @@ public class AdminInvoicesController : ControllerBase
         [FromBody] UpdateInvoiceStatusRequestDto request,
         CancellationToken cancellationToken)
     {
-        var invoice = await _invoiceAdminService.UpdateStatusAsync(
-            id,
-            request,
-            cancellationToken
-        );
-
-        if (invoice is null)
+        try
         {
-            return NotFound(ApiResponse.Fail(
-                "Invoice was not found."
+            var invoice = await _invoiceAdminService.UpdateStatusAsync(
+                id,
+                request,
+                cancellationToken
+            );
+
+            if (invoice is null)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Invoice was not found."
+                ));
+            }
+
+            return Ok(ApiResponse<InvoiceDetailDto>.Ok(
+                invoice,
+                "Invoice status updated successfully."
             ));
         }
-
-        return Ok(ApiResponse<InvoiceDetailDto>.Ok(
-            invoice,
-            "Invoice status updated successfully."
-        ));
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
     }
 
     /// <summary>
@@ -179,6 +186,7 @@ public class AdminInvoicesController : ControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -186,20 +194,27 @@ public class AdminInvoicesController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        var deleted = await _invoiceAdminService.DeleteAsync(
-            id,
-            cancellationToken
-        );
-
-        if (!deleted)
+        try
         {
-            return NotFound(ApiResponse.Fail(
-                "Invoice was not found."
+            var deleted = await _invoiceAdminService.DeleteAsync(
+                id,
+                cancellationToken
+            );
+
+            if (!deleted)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Invoice was not found."
+                ));
+            }
+
+            return Ok(ApiResponse.Ok(
+                "Invoice deleted successfully."
             ));
         }
-
-        return Ok(ApiResponse.Ok(
-            "Invoice deleted successfully."
-        ));
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
     }
 }

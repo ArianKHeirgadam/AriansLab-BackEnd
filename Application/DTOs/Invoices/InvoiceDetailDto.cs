@@ -32,6 +32,14 @@ public class InvoiceDetailDto
 
     public bool IsPaid { get; set; }
 
+    public bool IsFinalized { get; set; }
+
+    public bool HasPendingPayment { get; set; }
+
+    public decimal PaidAmount { get; set; }
+
+    public decimal RemainingAmount { get; set; }
+
     public string? Description { get; set; }
 
     public DateTime? PaidAt { get; set; }

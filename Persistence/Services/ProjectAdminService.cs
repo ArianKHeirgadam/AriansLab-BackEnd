@@ -103,6 +103,23 @@ public class ProjectAdminService : IProjectAdminService
             request.PaidAmount
         );
 
+        DateTime? invoiceDueDate = null;
+        if (request.CreateInitialInvoice)
+        {
+            ValidateInitialInvoice(
+                request.Price,
+                request.InvoiceDiscountAmount,
+                request.InvoiceTaxAmount);
+            invoiceDueDate = NormalizeUtc(request.InvoiceDueDate)
+                ?? DateTime.UtcNow.AddDays(7);
+
+            if (invoiceDueDate.Value < DateTime.UtcNow.Date)
+            {
+                throw new InvalidOperationException(
+                    "Invoice due date cannot be in the past.");
+            }
+        }
+
         var estimatedDeliveryDate = NormalizeUtc(
             request.EstimatedDeliveryDate
         );
@@ -147,12 +164,16 @@ public class ProjectAdminService : IProjectAdminService
             EstimatedDeliveryDate = estimatedDeliveryDate,
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
-            Status = request.Status,
-            Progress = request.Progress,
+            Status = request.CreateInitialInvoice
+                ? ProjectStatus.Pending
+                : request.Status,
+            Progress = request.CreateInitialInvoice
+                ? (byte)0
+                : request.Progress,
             Price = request.Price,
-            PaidAmount = request.PaidAmount,
-            StartDate = startDate,
-            EndDate = endDate,
+            PaidAmount = request.CreateInitialInvoice ? 0 : request.PaidAmount,
+            StartDate = request.CreateInitialInvoice ? null : startDate,
+            EndDate = request.CreateInitialInvoice ? null : endDate,
             AdminNote = NormalizeOptionalText(request.AdminNote),
             CustomerComment = NormalizeOptionalText(request.CustomerComment)
         };
@@ -161,6 +182,38 @@ public class ProjectAdminService : IProjectAdminService
             project,
             cancellationToken
         );
+
+        if (request.CreateInitialInvoice)
+        {
+            var invoiceNumber = await GenerateInvoiceNumberAsync(cancellationToken);
+            var invoice = new Invoice
+            {
+                UserId = project.UserId,
+                ProjectId = project.Id,
+                InvoiceNumber = invoiceNumber,
+                Amount = request.Price,
+                DiscountAmount = request.InvoiceDiscountAmount,
+                TaxAmount = request.InvoiceTaxAmount,
+                FinalAmount = request.Price -
+                    request.InvoiceDiscountAmount +
+                    request.InvoiceTaxAmount,
+                Status = PaymentStatus.Pending,
+                Description = NormalizeOptionalText(request.InvoiceDescription)
+                    ?? $"پیش‌فاکتور شروع پروژه {project.Title}",
+                DueDate = invoiceDueDate!.Value,
+                IsDeletedInvoice = false
+            };
+
+            await _dbContext.Invoices.AddAsync(invoice, cancellationToken);
+            await _dbContext.Notifications.AddAsync(new Notification
+            {
+                UserId = project.UserId,
+                Type = NotificationType.Info,
+                Title = "پیش‌فاکتور پروژه صادر شد",
+                Message = $"پیش‌فاکتور {invoiceNumber} برای پروژه {project.Title} آماده پرداخت است.",
+                IsRead = false
+            }, cancellationToken);
+        }
 
         await _dbContext.SaveChangesAsync(
             cancellationToken
@@ -225,6 +278,11 @@ public class ProjectAdminService : IProjectAdminService
             return null;
         }
 
+        await EnsureProjectCanStartAsync(
+            project,
+            request.Status,
+            cancellationToken);
+
         project.UserId = request.UserId;
         project.PricingPlanId = request.PricingPlanId;
         project.EstimatedDeliveryDate = estimatedDeliveryDate;
@@ -233,7 +291,8 @@ public class ProjectAdminService : IProjectAdminService
         project.Status = request.Status;
         project.Progress = request.Progress;
         project.Price = request.Price;
-        project.PaidAmount = request.PaidAmount;
+        // PaidAmount is derived exclusively from administrator-approved
+        // payment records and cannot be edited directly.
         project.StartDate = startDate;
         project.EndDate = endDate;
         project.AdminNote = NormalizeOptionalText(request.AdminNote);
@@ -273,6 +332,11 @@ public class ProjectAdminService : IProjectAdminService
         {
             return null;
         }
+
+        await EnsureProjectCanStartAsync(
+            project,
+            request.Status,
+            cancellationToken);
 
         project.Status = request.Status;
         project.Progress = request.Progress;
@@ -463,6 +527,61 @@ public class ProjectAdminService : IProjectAdminService
         }
     }
 
+    private async Task EnsureProjectCanStartAsync(
+        Project project,
+        ProjectStatus nextStatus,
+        CancellationToken cancellationToken)
+    {
+        if (project.Status != ProjectStatus.Pending ||
+            nextStatus != ProjectStatus.InProgress)
+        {
+            return;
+        }
+
+        var invoiceStates = await _dbContext.Invoices
+            .AsNoTracking()
+            .Where(item => item.ProjectId == project.Id)
+            .Select(item => item.Status)
+            .ToListAsync(cancellationToken);
+
+        if (invoiceStates.Count > 0 &&
+            invoiceStates.All(status => status != PaymentStatus.Paid))
+        {
+            throw new InvalidOperationException(
+                "Approve a project payment before moving it to in progress.");
+        }
+    }
+
+    private static void ValidateInitialInvoice(
+        decimal amount,
+        decimal discountAmount,
+        decimal taxAmount)
+    {
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException(
+                "Project price must be greater than zero when creating an invoice.");
+        }
+
+        if (discountAmount < 0 || taxAmount < 0)
+        {
+            throw new InvalidOperationException(
+                "Invoice discount and tax cannot be negative.");
+        }
+
+        if (discountAmount > amount)
+        {
+            throw new InvalidOperationException(
+                "Invoice discount cannot be greater than the project price.");
+        }
+
+        if (amount - discountAmount + taxAmount <= 0)
+        {
+            throw new InvalidOperationException(
+                "Invoice final amount must be greater than zero.");
+        }
+    }
+
     private static DateTime? NormalizeUtc(DateTime? value)
     {
         if (!value.HasValue)
@@ -521,6 +640,28 @@ public class ProjectAdminService : IProjectAdminService
             }
 
             sequence++;
+        }
+    }
+
+    private async Task<string> GenerateInvoiceNumberAsync(
+        CancellationToken cancellationToken)
+    {
+        var prefix = $"INV-{DateTime.UtcNow:yyyyMMdd}";
+
+        while (true)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var invoiceNumber = $"{prefix}-{suffix}";
+            var exists = await _dbContext.Invoices
+                .IgnoreQueryFilters()
+                .AnyAsync(
+                    item => item.InvoiceNumber == invoiceNumber,
+                    cancellationToken);
+
+            if (!exists)
+            {
+                return invoiceNumber;
+            }
         }
     }
 }

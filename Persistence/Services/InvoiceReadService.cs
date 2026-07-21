@@ -35,6 +35,19 @@ public class InvoiceReadService : IInvoiceReadService
                 FinalAmount = x.FinalAmount,
                 Status = x.Status,
                 IsPaid = x.IsPaid,
+                IsFinalized = x.Status == Domain.Enums.PaymentStatus.Paid,
+                HasPendingPayment = x.Payments.Any(p =>
+                    p.Status == Domain.Enums.PaymentStatus.Pending),
+                PaidAmount = x.Payments
+                    .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                    .Sum(p => p.Amount),
+                RemainingAmount = x.FinalAmount - x.Payments
+                    .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                    .Sum(p => p.Amount) > 0
+                        ? x.FinalAmount - x.Payments
+                            .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                            .Sum(p => p.Amount)
+                        : 0,
                 PaidAt = x.PaidAt,
                 DueDate = x.DueDate,
                 CreatedAt = x.CreatedAt
@@ -69,6 +82,19 @@ public class InvoiceReadService : IInvoiceReadService
                 FinalAmount = x.FinalAmount,
                 Status = x.Status,
                 IsPaid = x.IsPaid,
+                IsFinalized = x.Status == Domain.Enums.PaymentStatus.Paid,
+                HasPendingPayment = x.Payments.Any(p =>
+                    p.Status == Domain.Enums.PaymentStatus.Pending),
+                PaidAmount = x.Payments
+                    .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                    .Sum(p => p.Amount),
+                RemainingAmount = x.FinalAmount - x.Payments
+                    .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                    .Sum(p => p.Amount) > 0
+                        ? x.FinalAmount - x.Payments
+                            .Where(p => p.Status == Domain.Enums.PaymentStatus.Paid)
+                            .Sum(p => p.Amount)
+                        : 0,
                 Description = x.Description,
                 PaidAt = x.PaidAt,
                 DueDate = x.DueDate,

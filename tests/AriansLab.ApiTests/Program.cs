@@ -50,6 +50,16 @@ public static class DirectTestRunner
             analyticsTests.Dashboard_UsesStoredTrafficAndBusinessData,
             failures);
 
+        var paymentWorkflowTests = new PaymentWorkflowTests();
+        await RunAsync(
+            nameof(PaymentWorkflowTests.ProjectPaymentApproval_FinalizesInvoiceAndStartsProject),
+            paymentWorkflowTests.ProjectPaymentApproval_FinalizesInvoiceAndStartsProject,
+            failures);
+        await RunAsync(
+            nameof(PaymentWorkflowTests.InvoiceCreation_DerivesCustomerFromProjectAndNormalizesDueDate),
+            paymentWorkflowTests.InvoiceCreation_DerivesCustomerFromProjectAndNormalizesDueDate,
+            failures);
+
         using var factory = new ApiFactory();
         var authTests = new AuthFlowTests(factory);
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);

@@ -155,23 +155,30 @@ public class AdminPaymentsController : ControllerBase
         [FromBody] UpdatePaymentStatusRequestDto request,
         CancellationToken cancellationToken)
     {
-        var payment = await _paymentAdminService.UpdateStatusAsync(
-            id,
-            request,
-            cancellationToken
-        );
-
-        if (payment is null)
+        try
         {
-            return NotFound(ApiResponse.Fail(
-                "Payment was not found."
+            var payment = await _paymentAdminService.UpdateStatusAsync(
+                id,
+                request,
+                cancellationToken
+            );
+
+            if (payment is null)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Payment was not found."
+                ));
+            }
+
+            return Ok(ApiResponse<PaymentDetailDto>.Ok(
+                payment,
+                "Payment status updated successfully."
             ));
         }
-
-        return Ok(ApiResponse<PaymentDetailDto>.Ok(
-            payment,
-            "Payment status updated successfully."
-        ));
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
     }
 
     /// <summary>
@@ -179,6 +186,7 @@ public class AdminPaymentsController : ControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -186,20 +194,27 @@ public class AdminPaymentsController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        var deleted = await _paymentAdminService.DeleteAsync(
-            id,
-            cancellationToken
-        );
-
-        if (!deleted)
+        try
         {
-            return NotFound(ApiResponse.Fail(
-                "Payment was not found."
+            var deleted = await _paymentAdminService.DeleteAsync(
+                id,
+                cancellationToken
+            );
+
+            if (!deleted)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Payment was not found."
+                ));
+            }
+
+            return Ok(ApiResponse.Ok(
+                "Payment deleted successfully."
             ));
         }
-
-        return Ok(ApiResponse.Ok(
-            "Payment deleted successfully."
-        ));
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
     }
 }

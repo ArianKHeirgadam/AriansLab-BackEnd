@@ -41,6 +41,18 @@ public class InvoiceAdminService : IInvoiceAdminService
                 FinalAmount = x.FinalAmount,
                 Status = x.Status,
                 IsPaid = x.IsPaid,
+                IsFinalized = x.Status == PaymentStatus.Paid,
+                HasPendingPayment = x.Payments.Any(p => p.Status == PaymentStatus.Pending),
+                PaidAmount = x.Payments
+                    .Where(p => p.Status == PaymentStatus.Paid)
+                    .Sum(p => p.Amount),
+                RemainingAmount = x.FinalAmount - x.Payments
+                    .Where(p => p.Status == PaymentStatus.Paid)
+                    .Sum(p => p.Amount) > 0
+                        ? x.FinalAmount - x.Payments
+                            .Where(p => p.Status == PaymentStatus.Paid)
+                            .Sum(p => p.Amount)
+                        : 0,
                 Description = x.Description,
                 PaidAt = x.PaidAt,
                 DueDate = x.DueDate,
@@ -91,6 +103,18 @@ public class InvoiceAdminService : IInvoiceAdminService
                 FinalAmount = x.FinalAmount,
                 Status = x.Status,
                 IsPaid = x.IsPaid,
+                IsFinalized = x.Status == PaymentStatus.Paid,
+                HasPendingPayment = x.Payments.Any(p => p.Status == PaymentStatus.Pending),
+                PaidAmount = x.Payments
+                    .Where(p => p.Status == PaymentStatus.Paid)
+                    .Sum(p => p.Amount),
+                RemainingAmount = x.FinalAmount - x.Payments
+                    .Where(p => p.Status == PaymentStatus.Paid)
+                    .Sum(p => p.Amount) > 0
+                        ? x.FinalAmount - x.Payments
+                            .Where(p => p.Status == PaymentStatus.Paid)
+                            .Sum(p => p.Amount)
+                        : 0,
                 Description = x.Description,
                 PaidAt = x.PaidAt,
                 DueDate = x.DueDate,
@@ -119,7 +143,7 @@ public class InvoiceAdminService : IInvoiceAdminService
         CreateInvoiceRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        await ValidateUserAndProjectAsync(
+        var projectOwnerId = await ValidateAndGetProjectOwnerAsync(
             request.UserId,
             request.ProjectId,
             cancellationToken
@@ -131,11 +155,20 @@ public class InvoiceAdminService : IInvoiceAdminService
             request.TaxAmount
         );
 
+        if (request.Status != PaymentStatus.Pending)
+        {
+            throw new InvalidOperationException(
+                "A new invoice must start as a provisional pending invoice.");
+        }
+
+        var dueDate = NormalizeRequiredUtc(request.DueDate, "Invoice due date");
+
         var invoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber)
             ? await GenerateInvoiceNumberAsync(cancellationToken)
             : request.InvoiceNumber.Trim().ToUpperInvariant();
 
         var invoiceNumberExists = await _dbContext.Invoices
+            .IgnoreQueryFilters()
             .AnyAsync(x => x.InvoiceNumber == invoiceNumber, cancellationToken);
 
         if (invoiceNumberExists)
@@ -151,19 +184,17 @@ public class InvoiceAdminService : IInvoiceAdminService
 
         var invoice = new Invoice
         {
-            UserId = request.UserId,
+            UserId = projectOwnerId,
             ProjectId = request.ProjectId,
             InvoiceNumber = invoiceNumber,
             Amount = request.Amount,
             DiscountAmount = request.DiscountAmount,
             TaxAmount = request.TaxAmount,
             FinalAmount = finalAmount,
-            Status = request.Status,
+            Status = PaymentStatus.Pending,
             Description = request.Description?.Trim(),
-            DueDate = request.DueDate,
-            PaidAt = request.Status == PaymentStatus.Paid
-                ? DateTime.UtcNow
-                : null,
+            DueDate = dueDate,
+            PaidAt = null,
             IsDeletedInvoice = false
         };
 
@@ -183,7 +214,7 @@ public class InvoiceAdminService : IInvoiceAdminService
         UpdateInvoiceRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        await ValidateUserAndProjectAsync(
+        var projectOwnerId = await ValidateAndGetProjectOwnerAsync(
             request.UserId,
             request.ProjectId,
             cancellationToken
@@ -195,6 +226,9 @@ public class InvoiceAdminService : IInvoiceAdminService
             request.TaxAmount
         );
 
+        ValidatePaymentStatus(request.Status);
+        var dueDate = NormalizeRequiredUtc(request.DueDate, "Invoice due date");
+
         var invoice = await _dbContext.Invoices
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -203,21 +237,32 @@ public class InvoiceAdminService : IInvoiceAdminService
             return null;
         }
 
-        invoice.UserId = request.UserId;
+        EnsureInvoiceIsEditable(invoice);
+
+        var finalAmount = CalculateFinalAmount(
+            request.Amount,
+            request.DiscountAmount,
+            request.TaxAmount);
+
+        if (request.Status == PaymentStatus.Paid)
+        {
+            await EnsureInvoiceIsFullyPaidAsync(
+                invoice.Id,
+                finalAmount,
+                cancellationToken);
+        }
+
+        invoice.UserId = projectOwnerId;
         invoice.ProjectId = request.ProjectId;
         invoice.Amount = request.Amount;
         invoice.DiscountAmount = request.DiscountAmount;
         invoice.TaxAmount = request.TaxAmount;
-        invoice.FinalAmount = CalculateFinalAmount(
-            request.Amount,
-            request.DiscountAmount,
-            request.TaxAmount
-        );
+        invoice.FinalAmount = finalAmount;
         invoice.Status = request.Status;
         invoice.Description = request.Description?.Trim();
-        invoice.DueDate = request.DueDate;
+        invoice.DueDate = dueDate;
         invoice.PaidAt = request.Status == PaymentStatus.Paid
-            ? request.PaidAt ?? DateTime.UtcNow
+            ? NormalizeUtc(request.PaidAt) ?? invoice.PaidAt ?? DateTime.UtcNow
             : null;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -230,12 +275,29 @@ public class InvoiceAdminService : IInvoiceAdminService
         UpdateInvoiceStatusRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        ValidatePaymentStatus(request.Status);
+
         var invoice = await _dbContext.Invoices
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (invoice is null)
         {
             return null;
+        }
+
+        if (invoice.Status == PaymentStatus.Paid &&
+            request.Status != PaymentStatus.Paid)
+        {
+            throw new InvalidOperationException(
+                "A finalized invoice cannot be changed. Refund the approved payment instead.");
+        }
+
+        if (request.Status == PaymentStatus.Paid)
+        {
+            await EnsureInvoiceIsFullyPaidAsync(
+                invoice.Id,
+                invoice.FinalAmount,
+                cancellationToken);
         }
 
         invoice.Status = request.Status;
@@ -261,6 +323,8 @@ public class InvoiceAdminService : IInvoiceAdminService
             return false;
         }
 
+        EnsureInvoiceIsEditable(invoice);
+
         invoice.IsDeletedInvoice = true;
 
         _dbContext.Invoices.Remove(invoice);
@@ -270,29 +334,43 @@ public class InvoiceAdminService : IInvoiceAdminService
         return true;
     }
 
-    private async Task ValidateUserAndProjectAsync(
+    private static void EnsureInvoiceIsEditable(Invoice invoice)
+    {
+        if (invoice.Status == PaymentStatus.Paid)
+        {
+            throw new InvalidOperationException(
+                "A finalized invoice cannot be edited or deleted.");
+        }
+    }
+
+    private async Task<Guid> ValidateAndGetProjectOwnerAsync(
         Guid userId,
         Guid projectId,
         CancellationToken cancellationToken)
     {
-        var userExists = await _dbContext.Users
-            .AnyAsync(x => x.Id == userId && x.IsActive, cancellationToken);
-
-        if (!userExists)
+        if (projectId == Guid.Empty)
         {
-            throw new InvalidOperationException("Active user was not found.");
+            throw new InvalidOperationException("Project id is required.");
         }
 
-        var projectBelongsToUser = await _dbContext.Projects
-            .AnyAsync(
-                x => x.Id == projectId && x.UserId == userId,
-                cancellationToken
-            );
+        var project = await _dbContext.Projects
+            .AsNoTracking()
+            .Where(item => item.Id == projectId && item.User.IsActive)
+            .Select(item => new { item.UserId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!projectBelongsToUser)
+        if (project is null)
         {
-            throw new InvalidOperationException("Project was not found for this user.");
+            throw new InvalidOperationException("An active project and customer were not found.");
         }
+
+        if (userId != Guid.Empty && userId != project.UserId)
+        {
+            throw new InvalidOperationException(
+                "The selected project does not belong to the selected customer.");
+        }
+
+        return project.UserId;
     }
 
     private static void ValidateAmounts(
@@ -300,9 +378,9 @@ public class InvoiceAdminService : IInvoiceAdminService
         decimal discountAmount,
         decimal taxAmount)
     {
-        if (amount < 0)
+        if (amount <= 0)
         {
-            throw new InvalidOperationException("Invoice amount cannot be negative.");
+            throw new InvalidOperationException("Invoice amount must be greater than zero.");
         }
 
         if (discountAmount < 0)
@@ -340,18 +418,76 @@ public class InvoiceAdminService : IInvoiceAdminService
         return amount - discountAmount + taxAmount;
     }
 
+    private async Task EnsureInvoiceIsFullyPaidAsync(
+        Guid invoiceId,
+        decimal finalAmount,
+        CancellationToken cancellationToken)
+    {
+        var approvedAmount = await _dbContext.Payments
+            .Where(item =>
+                item.InvoiceId == invoiceId &&
+                item.Status == PaymentStatus.Paid)
+            .SumAsync(item => item.Amount, cancellationToken);
+
+        if (approvedAmount < finalAmount)
+        {
+            throw new InvalidOperationException(
+                "Approve the customer's payment before finalizing the invoice.");
+        }
+    }
+
+    private static void ValidatePaymentStatus(PaymentStatus status)
+    {
+        if (!Enum.IsDefined(typeof(PaymentStatus), status))
+        {
+            throw new InvalidOperationException("Invoice status is invalid.");
+        }
+    }
+
+    private static DateTime NormalizeRequiredUtc(DateTime value, string fieldName)
+    {
+        if (value == default)
+        {
+            throw new InvalidOperationException($"{fieldName} is required.");
+        }
+
+        return NormalizeUtc(value)!.Value;
+    }
+
+    private static DateTime? NormalizeUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+    }
+
     private async Task<string> GenerateInvoiceNumberAsync(
         CancellationToken cancellationToken)
     {
-        var today = DateTime.UtcNow;
-        var prefix = $"INV-{today:yyyyMMdd}";
+        var prefix = $"INV-{DateTime.UtcNow:yyyyMMdd}";
 
-        var countToday = await _dbContext.Invoices
-            .CountAsync(
-                x => x.InvoiceNumber.StartsWith(prefix),
-                cancellationToken
-            );
+        while (true)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var invoiceNumber = $"{prefix}-{suffix}";
+            var exists = await _dbContext.Invoices
+                .IgnoreQueryFilters()
+                .AnyAsync(
+                    item => item.InvoiceNumber == invoiceNumber,
+                    cancellationToken);
 
-        return $"{prefix}-{countToday + 1:000}";
+            if (!exists)
+            {
+                return invoiceNumber;
+            }
+        }
     }
 }

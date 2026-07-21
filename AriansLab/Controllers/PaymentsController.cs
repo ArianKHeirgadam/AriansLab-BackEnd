@@ -14,10 +14,65 @@ namespace AriansLab.Api.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentReadService _paymentReadService;
+    private readonly IPaymentSubmissionService _paymentSubmissionService;
 
-    public PaymentsController(IPaymentReadService paymentReadService)
+    public PaymentsController(
+        IPaymentReadService paymentReadService,
+        IPaymentSubmissionService paymentSubmissionService)
     {
         _paymentReadService = paymentReadService;
+        _paymentSubmissionService = paymentSubmissionService;
+    }
+
+    /// <summary>
+    /// Submits customer payment proof for an owned provisional invoice.
+    /// The server calculates the payable amount and keeps the payment pending
+    /// until an administrator verifies it.
+    /// </summary>
+    [HttpPost("my")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentDetailDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponse<PaymentDetailDto>>> SubmitMyPayment(
+        [FromBody] SubmitPaymentRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            return Unauthorized(ApiResponse.Fail(
+                "Authenticated user id was not found."));
+        }
+
+        try
+        {
+            var payment = await _paymentSubmissionService.SubmitAsync(
+                userId.Value,
+                request,
+                cancellationToken);
+
+            if (payment is null)
+            {
+                return NotFound(ApiResponse.Fail(
+                    "Invoice was not found for the authenticated user."));
+            }
+
+            return StatusCode(
+                StatusCodes.Status201Created,
+                ApiResponse<PaymentDetailDto>.Ok(
+                    payment,
+                    "Payment submitted and is waiting for administrator approval."));
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(ApiResponse.Fail(exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(ApiResponse.Fail(exception.Message));
+        }
     }
 
     /// <summary>

@@ -62,9 +62,12 @@ public class PaymentReadService : IPaymentReadService
                 Authority = x.Authority,
                 RefId = x.RefId,
                 Status = x.Status,
-                CardPan = x.CardPan,
+                CardPan = x.CardPan == null
+                    ? null
+                    : x.CardPan.Length <= 4
+                        ? x.CardPan
+                        : "****-****-****-" + x.CardPan.Substring(x.CardPan.Length - 4),
                 TrackingCode = x.TrackingCode,
-                GatewayResponse = x.GatewayResponse,
                 PaidAt = x.PaidAt,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
