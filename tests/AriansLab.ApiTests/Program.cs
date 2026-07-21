@@ -30,6 +30,16 @@ public static class DirectTestRunner
             () => RunSync(securityStampTests.Create_IsStableWhenSqlServerReturnsUnspecifiedDateTimeKind),
             failures);
 
+        var portfolioAdminTests = new PortfolioAdminServiceTests();
+        await RunAsync(
+            nameof(PortfolioAdminServiceTests.CreateAndUpdate_NormalizeProjectDateToUtc),
+            portfolioAdminTests.CreateAndUpdate_NormalizeProjectDateToUtc,
+            failures);
+        await RunAsync(
+            nameof(PortfolioAdminServiceTests.Delete_SoftDeletesPortfolioAndRelatedRecords),
+            portfolioAdminTests.Delete_SoftDeletesPortfolioAndRelatedRecords,
+            failures);
+
         using var factory = new ApiFactory();
         var authTests = new AuthFlowTests(factory);
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);

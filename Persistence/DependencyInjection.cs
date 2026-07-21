@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IBlogAdminCategoryService, BlogAdminCategoryService>();
         services.AddScoped<IBlogAdminPostService, BlogAdminPostService>();
         services.AddScoped<IPortfolioReadService, PortfolioReadService>();
+        services.AddScoped<IPortfolioAdminService, PortfolioAdminService>();
         services.AddScoped<IPricingReadService, PricingReadService>();
         services.AddScoped<IServiceReadService, ServiceReadService>();
         services.AddScoped<IServiceAdminService, ServiceAdminService>();
