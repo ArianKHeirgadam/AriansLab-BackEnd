@@ -99,11 +99,39 @@ public class BlogReadService : IBlogReadService
 
         var normalizedSlug = slug.Trim();
 
-        return await _dbContext.BlogPosts
+        var publishedPost = _dbContext.BlogPosts
+            .Where(x => x.IsPublished && x.Slug == normalizedSlug);
+
+        if (_dbContext.Database.IsRelational())
+        {
+            var updatedRows = await publishedPost.ExecuteUpdateAsync(
+                updates => updates.SetProperty(
+                    post => post.ViewCount,
+                    post => post.ViewCount + 1),
+                cancellationToken);
+
+            if (updatedRows == 0)
+            {
+                return null;
+            }
+        }
+        else
+        {
+            // EF Core's in-memory provider does not support ExecuteUpdateAsync.
+            // Keep the fallback for local/tests while production uses the atomic update above.
+            var trackedPost = await publishedPost.FirstOrDefaultAsync(cancellationToken);
+
+            if (trackedPost is null)
+            {
+                return null;
+            }
+
+            trackedPost.ViewCount++;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return await publishedPost
             .AsNoTracking()
-            .Include(x => x.Category)
-            .Include(x => x.Author)
-            .Where(x => x.IsPublished && x.Slug == normalizedSlug)
             .Select(x => new BlogPostDetailDto
             {
                 Id = x.Id,

@@ -50,6 +50,12 @@ public static class DirectTestRunner
             analyticsTests.Dashboard_UsesStoredTrafficAndBusinessData,
             failures);
 
+        var blogViewCountTests = new BlogViewCountTests();
+        await RunAsync(
+            nameof(BlogViewCountTests.PublishedPostDetail_IncrementsAndReturnsViewCount),
+            blogViewCountTests.PublishedPostDetail_IncrementsAndReturnsViewCount,
+            failures);
+
         var paymentWorkflowTests = new PaymentWorkflowTests();
         await RunAsync(
             nameof(PaymentWorkflowTests.ProjectPaymentApproval_FinalizesInvoiceAndStartsProject),
