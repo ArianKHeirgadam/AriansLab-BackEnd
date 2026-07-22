@@ -33,6 +33,8 @@ public class Project : SoftDeleteEntity
 
     public string? CustomerComment { get; set; }
 
+    public bool IsCustomerCommentApproved { get; set; }
+
     public virtual User User { get; set; } = null!;
 
     public virtual PricingPlan PricingPlan { get; set; } = null!;

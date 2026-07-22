@@ -25,6 +25,15 @@ public interface IProjectAdminService
         UpdateProjectStatusRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<ProjectDetailDto?> UpdateCustomerCommentApprovalAsync(
+        Guid id,
+        UpdateProjectCustomerCommentApprovalRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteCustomerCommentAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(
         Guid id,
         CancellationToken cancellationToken = default);

@@ -24,5 +24,9 @@ public class ProjectListItemDto
 
     public DateTime? EndDate { get; set; }
 
+    public string? CustomerComment { get; set; }
+
+    public bool IsCustomerCommentApproved { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

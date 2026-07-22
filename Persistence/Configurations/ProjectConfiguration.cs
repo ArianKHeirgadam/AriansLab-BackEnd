@@ -44,6 +44,9 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
         builder.Property(x => x.CustomerComment)
             .HasMaxLength(3000);
 
+        builder.Property(x => x.IsCustomerCommentApproved)
+            .HasDefaultValue(false);
+
         builder.HasIndex(x => x.ProjectCode)
             .IsUnique();
 

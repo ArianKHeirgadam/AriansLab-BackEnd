@@ -182,6 +182,67 @@ public class AdminProjectsController : ControllerBase
     }
 
     /// <summary>
+    /// Updates the approval status of a customer's project comment.
+    /// </summary>
+    [HttpPatch("{id:guid}/customer-comment/approval")]
+    [ProducesResponseType(typeof(ApiResponse<ProjectDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<ProjectDetailDto>>> UpdateCustomerCommentApproval(
+        [FromRoute] Guid id,
+        [FromBody] UpdateProjectCustomerCommentApprovalRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var project = await _projectAdminService.UpdateCustomerCommentApprovalAsync(
+            id,
+            request,
+            cancellationToken
+        );
+
+        if (project is null)
+        {
+            return NotFound(ApiResponse.Fail(
+                "Project comment was not found."
+            ));
+        }
+
+        return Ok(ApiResponse<ProjectDetailDto>.Ok(
+            project,
+            "Project comment approval status updated successfully."
+        ));
+    }
+
+    /// <summary>
+    /// Deletes a customer's comment without deleting the project.
+    /// </summary>
+    [HttpDelete("{id:guid}/customer-comment")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse>> DeleteCustomerComment(
+        [FromRoute] Guid id,
+        CancellationToken cancellationToken)
+    {
+        var deleted = await _projectAdminService.DeleteCustomerCommentAsync(
+            id,
+            cancellationToken
+        );
+
+        if (!deleted)
+        {
+            return NotFound(ApiResponse.Fail(
+                "Project comment was not found."
+            ));
+        }
+
+        return Ok(ApiResponse.Ok(
+            "Project comment deleted successfully."
+        ));
+    }
+
+    /// <summary>
     /// Soft deletes an existing project.
     /// </summary>
     [HttpDelete("{id:guid}")]

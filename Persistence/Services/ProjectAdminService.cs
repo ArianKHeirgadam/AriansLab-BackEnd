@@ -44,6 +44,7 @@ public class ProjectAdminService : IProjectAdminService
                 EndDate = x.EndDate,
                 AdminNote = x.AdminNote,
                 CustomerComment = x.CustomerComment,
+                IsCustomerCommentApproved = x.IsCustomerCommentApproved,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
@@ -79,6 +80,7 @@ public class ProjectAdminService : IProjectAdminService
                 EndDate = x.EndDate,
                 AdminNote = x.AdminNote,
                 CustomerComment = x.CustomerComment,
+                IsCustomerCommentApproved = x.IsCustomerCommentApproved,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
@@ -175,7 +177,8 @@ public class ProjectAdminService : IProjectAdminService
             StartDate = request.CreateInitialInvoice ? null : startDate,
             EndDate = request.CreateInitialInvoice ? null : endDate,
             AdminNote = NormalizeOptionalText(request.AdminNote),
-            CustomerComment = NormalizeOptionalText(request.CustomerComment)
+            CustomerComment = NormalizeOptionalText(request.CustomerComment),
+            IsCustomerCommentApproved = false
         };
 
         await _dbContext.Projects.AddAsync(
@@ -296,9 +299,18 @@ public class ProjectAdminService : IProjectAdminService
         project.StartDate = startDate;
         project.EndDate = endDate;
         project.AdminNote = NormalizeOptionalText(request.AdminNote);
-        project.CustomerComment = NormalizeOptionalText(
+        var normalizedCustomerComment = NormalizeOptionalText(
             request.CustomerComment
         );
+
+        if (!string.Equals(
+                project.CustomerComment,
+                normalizedCustomerComment,
+                StringComparison.Ordinal))
+        {
+            project.CustomerComment = normalizedCustomerComment;
+            project.IsCustomerCommentApproved = false;
+        }
 
         await _dbContext.SaveChangesAsync(
             cancellationToken
@@ -367,6 +379,52 @@ public class ProjectAdminService : IProjectAdminService
             project.Id,
             cancellationToken
         );
+    }
+
+    public async Task<ProjectDetailDto?> UpdateCustomerCommentApprovalAsync(
+        Guid id,
+        UpdateProjectCustomerCommentApprovalRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var project = await _dbContext.Projects
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken
+            );
+
+        if (project is null || string.IsNullOrWhiteSpace(project.CustomerComment))
+        {
+            return null;
+        }
+
+        project.IsCustomerCommentApproved = request.IsApproved;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetByIdAsync(project.Id, cancellationToken);
+    }
+
+    public async Task<bool> DeleteCustomerCommentAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var project = await _dbContext.Projects
+            .FirstOrDefaultAsync(
+                x => x.Id == id,
+                cancellationToken
+            );
+
+        if (project is null || string.IsNullOrWhiteSpace(project.CustomerComment))
+        {
+            return false;
+        }
+
+        project.CustomerComment = null;
+        project.IsCustomerCommentApproved = false;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 
     public async Task<bool> DeleteAsync(

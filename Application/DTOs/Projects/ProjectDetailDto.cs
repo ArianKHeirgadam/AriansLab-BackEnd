@@ -40,6 +40,8 @@ public class ProjectDetailDto
 
     public string? CustomerComment { get; set; }
 
+    public bool IsCustomerCommentApproved { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

@@ -60,6 +60,12 @@ public static class DirectTestRunner
             paymentWorkflowTests.InvoiceCreation_DerivesCustomerFromProjectAndNormalizesDueDate,
             failures);
 
+        var projectCommentTests = new ProjectCommentModerationTests();
+        await RunAsync(
+            nameof(ProjectCommentModerationTests.CustomerComment_IsListedAndCanBeModeratedByAdmin),
+            projectCommentTests.CustomerComment_IsListedAndCanBeModeratedByAdmin,
+            failures);
+
         using var factory = new ApiFactory();
         var authTests = new AuthFlowTests(factory);
         await RunAsync(nameof(AuthFlowTests.Register_WithoutCsrfToken_IsRejected), authTests.Register_WithoutCsrfToken_IsRejected, failures);

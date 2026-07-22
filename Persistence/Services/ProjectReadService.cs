@@ -34,6 +34,8 @@ public class ProjectReadService : IProjectReadService
                 EstimatedDeliveryDate = x.EstimatedDeliveryDate,
                 StartDate = x.StartDate,
                 EndDate = x.EndDate,
+                CustomerComment = x.CustomerComment,
+                IsCustomerCommentApproved = x.IsCustomerCommentApproved,
                 CreatedAt = x.CreatedAt
             })
             .ToListAsync(cancellationToken);
@@ -69,6 +71,7 @@ public class ProjectReadService : IProjectReadService
                 EndDate = x.EndDate,
                 AdminNote = x.AdminNote,
                 CustomerComment = x.CustomerComment,
+                IsCustomerCommentApproved = x.IsCustomerCommentApproved,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
             })
@@ -92,7 +95,18 @@ public class ProjectReadService : IProjectReadService
             return null;
         }
 
-        project.CustomerComment = request.CustomerComment?.Trim();
+        var normalizedComment = NormalizeCustomerComment(
+            request.CustomerComment
+        );
+
+        if (!string.Equals(
+                project.CustomerComment,
+                normalizedComment,
+                StringComparison.Ordinal))
+        {
+            project.CustomerComment = normalizedComment;
+            project.IsCustomerCommentApproved = false;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -101,5 +115,24 @@ public class ProjectReadService : IProjectReadService
             project.Id,
             cancellationToken
         );
+    }
+
+    private static string? NormalizeCustomerComment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim();
+
+        if (normalized.Length > 3000)
+        {
+            throw new InvalidOperationException(
+                "Customer comment cannot be longer than 3000 characters."
+            );
+        }
+
+        return normalized;
     }
 }
