@@ -71,7 +71,8 @@ public class BlogReadService : IBlogReadService
                 PublishedAt = x.PublishedAt,
                 CategoryName = x.Category.Name,
                 CategorySlug = x.Category.Slug,
-                AuthorName = x.Author.FullName
+                AuthorName = x.Author.FullName,
+                Keywords = x.Keywords
             })
             .ToListAsync(cancellationToken);
 

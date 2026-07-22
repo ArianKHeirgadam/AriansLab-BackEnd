@@ -23,4 +23,6 @@ public class BlogPostListItemDto
     public string CategorySlug { get; set; } = string.Empty;
 
     public string AuthorName { get; set; } = string.Empty;
+
+    public string? Keywords { get; set; }
 }
